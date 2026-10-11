@@ -1,3 +1,5 @@
+#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
+
 use gpui::prelude::*;
 use gpui::{
     App, Bounds, Context, Entity, FocusHandle, Hsla, Render, Rgba, ScrollHandle, SharedString,
