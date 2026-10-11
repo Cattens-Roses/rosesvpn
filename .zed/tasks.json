@@ -1,0 +1,44 @@
+[
+  {
+    "label": "Run",
+    "command": "cargo run",
+    "args": ["--bin", "rosesvpn"],
+    "working_directory": "{{WORKSPACE_ROOT}}",
+    "hide": "on_success"
+  },
+  {
+    "label": "Build",
+    "command": "cargo build",
+    "args": [],
+    "working_directory": "{{WORKSPACE_ROOT}}",
+    "hide": "on_success"
+  },
+  {
+    "label": "Check",
+    "command": "cargo check",
+    "args": ["-p", "baseapp"],
+    "working_directory": "{{WORKSPACE_ROOT}}",
+    "hide": "on_success"
+  },
+  {
+    "label": "Test",
+    "command": "cargo test",
+    "args": [],
+    "working_directory": "{{WORKSPACE_ROOT}}",
+    "hide": "on_success"
+  },
+  {
+    "label": "Clippy",
+    "command": "cargo clippy",
+    "args": ["--", "-D", "warnings"],
+    "working_directory": "{{WORKSPACE_ROOT}}",
+    "hide": "on_success"
+  },
+  {
+    "label": "Format",
+    "command": "cargo fmt",
+    "args": ["--", "--check"],
+    "working_directory": "{{WORKSPACE_ROOT}}",
+    "hide": "on_success"
+  }
+]

@@ -3,18 +3,28 @@ name = "baseapp"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+autobins = false
+
+[[bin]]
+name = "rosesvpn"
+path = "src/main.rs"
 
 [features]
 profiler = ["gpui/profiler"]
 
 [dependencies]
 env_logger.workspace = true
+anyhow.workspace = true
 log.workspace = true
 gpui.workspace = true
 gpui_platform.workspace = true
 i18n.workspace = true
 icons.workspace = true
 ui.workspace = true
+vpn-engine = { path = "../vpn-engine" }
 
 [build-dependencies]
 embed-resource = "3.0.11"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys.workspace = true

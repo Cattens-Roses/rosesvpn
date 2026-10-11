@@ -1,4 +1,4 @@
-name: Build
+name: Build RosesVPN
 
 on:
   push:
@@ -24,11 +24,8 @@ jobs:
       matrix:
         include:
           - name: Linux x64
-            os: ubuntu-22.04
+            os: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
-          - name: macOS Apple Silicon
-            os: macos-15
-            target: aarch64-apple-darwin
           - name: Windows x64
             os: windows-latest
             target: x86_64-pc-windows-msvc
@@ -42,7 +39,9 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential pkg-config cmake mold \
             libfontconfig1-dev libfreetype-dev \
-            libx11-dev libxcb1-dev libxcursor-dev libxi-dev \
+            libx11-dev libx11-xcb-dev libxcb1-dev libxcb-render0-dev \
+            libxcb-shape0-dev libxcb-xfixes0-dev libxcb-xkb-dev \
+            libxcb-randr0-dev libxcb-xinerama0-dev libxcb-cursor-dev \
             libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
             libvulkan-dev
 
@@ -54,13 +53,13 @@ jobs:
         with:
           key: ${{ matrix.target }}
 
-      - name: Build baseapp
+      - name: Build RosesVPN
         run: cargo build --release --locked -p baseapp --target ${{ matrix.target }}
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: baseapp-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/baseapp${{ runner.os == 'Windows' && '.exe' || '' }}
+          name: rosesvpn-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/rosesvpn${{ runner.os == 'Windows' && '.exe' || '' }}
           if-no-files-found: error
           retention-days: 14

@@ -15,18 +15,29 @@ env:
 
 jobs:
   check:
-    name: Format and check
-    runs-on: ubuntu-22.04
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux checks
+            os: ubuntu-24.04
+          - name: Windows checks
+            os: windows-latest
     steps:
       - uses: actions/checkout@v5
 
       - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential pkg-config cmake mold \
             libfontconfig1-dev libfreetype-dev \
-            libx11-dev libxcb1-dev libxcursor-dev libxi-dev \
+            libx11-dev libx11-xcb-dev libxcb1-dev libxcb-render0-dev \
+            libxcb-shape0-dev libxcb-xfixes0-dev libxcb-xkb-dev \
+            libxcb-randr0-dev libxcb-xinerama0-dev libxcb-cursor-dev \
             libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
             libvulkan-dev
 
@@ -35,7 +46,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Check formatting
+        if: runner.os == 'Linux'
         run: cargo fmt --all --check
 
-      - name: Check baseapp
+      - name: Check desktop application
         run: cargo check --locked -p baseapp
+
+      - name: Test VPN engine
+        run: cargo test --locked -p vpn-engine

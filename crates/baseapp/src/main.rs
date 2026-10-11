@@ -31,6 +31,14 @@ const AMBIENT_SPECS: [(f32, f32, f32, f32, f32, f32, f32); 5] = [
 enum Page {
     Home,
     Appearance,
+    Security,
+}
+
+#[derive(Clone, Copy)]
+enum PrivilegedOperation {
+    Connect,
+    Disconnect,
+    SetLockdown(bool),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -151,6 +159,15 @@ struct BaseApp {
     focus: FocusHandle,
     scrollbar: Entity<Scrollbar>,
     appearance_observer: Option<gpui::Subscription>,
+    vpn_status: String,
+    transfer_stats: vpn_engine::TransferStats,
+    stats_poll_started: bool,
+    profiles: Vec<vpn_engine::VpnProfile>,
+    selected_profile: Option<usize>,
+    lockdown: bool,
+    lockdown_service_active: bool,
+    security_notice: Option<String>,
+    privilege_prompt: Option<PrivilegedOperation>,
 }
 
 #[derive(Clone, Copy)]
@@ -267,12 +284,212 @@ fn preferences_path() -> Option<PathBuf> {
     let base = std::env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)
         .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")))?;
-    Some(base.join("baseapp").join("appearance.cfg"))
+    Some(base.join("RosesVPN").join("appearance.cfg"))
+}
+
+fn choose_wireguard_config() -> Option<PathBuf> {
+    #[cfg(target_os = "windows")]
+    unsafe {
+        use windows_sys::Win32::UI::Controls::Dialogs::{
+            GetOpenFileNameW, OFN_EXPLORER, OFN_FILEMUSTEXIST, OFN_PATHMUSTEXIST, OPENFILENAMEW,
+        };
+        let mut file = [0u16; 32768];
+        let filter = "WireGuard configuration (*.conf)\0*.conf\0All files (*.*)\0*.*\0\0"
+            .encode_utf16()
+            .collect::<Vec<_>>();
+        let title = "Import WireGuard configuration\0"
+            .encode_utf16()
+            .collect::<Vec<_>>();
+        let mut dialog = OPENFILENAMEW::default();
+        dialog.lStructSize = std::mem::size_of::<OPENFILENAMEW>() as u32;
+        dialog.lpstrFilter = filter.as_ptr();
+        dialog.lpstrFile = file.as_mut_ptr();
+        dialog.nMaxFile = file.len() as u32;
+        dialog.lpstrTitle = title.as_ptr();
+        dialog.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+        if GetOpenFileNameW(&mut dialog) == 0 {
+            return None;
+        }
+        let length = file.iter().position(|c| *c == 0).unwrap_or(file.len());
+        return Some(PathBuf::from(String::from_utf16_lossy(&file[..length])));
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let output = std::process::Command::new("zenity")
+            .args([
+                "--file-selection",
+                "--file-filter=WireGuard (*.conf) | *.conf",
+            ])
+            .output()
+            .ok()?;
+        if !output.status.success() {
+            return None;
+        }
+        Some(PathBuf::from(
+            String::from_utf8_lossy(&output.stdout).trim(),
+        ))
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let output = std::process::Command::new("osascript")
+            .args([
+                "-e",
+                "POSIX path of (choose file with prompt \"Import WireGuard configuration\")",
+            ])
+            .output()
+            .ok()?;
+        if !output.status.success() {
+            return None;
+        }
+        Some(PathBuf::from(
+            String::from_utf8_lossy(&output.stdout).trim(),
+        ))
+    }
+}
+
+fn run_privileged_operation(
+    operation: PrivilegedOperation,
+    profile_path: Option<PathBuf>,
+    connected: bool,
+) -> anyhow::Result<()> {
+    match operation {
+        PrivilegedOperation::Connect => {
+            let path = profile_path.ok_or_else(|| anyhow::anyhow!("Import a VPN profile first"))?;
+            vpn_engine::connect(&path).map(|_| ())
+        }
+        PrivilegedOperation::Disconnect => {
+            let path = profile_path.ok_or_else(|| anyhow::anyhow!("Select a VPN profile first"))?;
+            vpn_engine::disconnect_config(&path)
+        }
+        PrivilegedOperation::SetLockdown(enabled) => {
+            vpn_engine::set_lockdown(enabled, connected, profile_path.as_deref())
+        }
+    }
+}
+
+fn format_bytes(bytes: u64) -> String {
+    const UNITS: [&str; 4] = ["B", "KB", "MB", "GB"];
+    let mut value = bytes as f64;
+    let mut unit = 0;
+    while value >= 1024.0 && unit < UNITS.len() - 1 {
+        value /= 1024.0;
+        unit += 1;
+    }
+    if unit == 0 {
+        format!("{bytes} B")
+    } else {
+        format!("{value:.1} {}", UNITS[unit])
+    }
 }
 
 impl BaseApp {
+    fn poll_transfer_stats(&mut self, cx: &mut Context<Self>) {
+        if self.stats_poll_started {
+            return;
+        }
+        self.stats_poll_started = true;
+        cx.spawn(async move |this, cx| {
+            loop {
+                cx.background_executor()
+                    .timer(std::time::Duration::from_secs(1))
+                    .await;
+                let path = this
+                    .update(cx, |this, _| {
+                        if this.vpn_status != "Connected" {
+                            None
+                        } else {
+                            this.selected_profile
+                                .and_then(|index| this.profiles.get(index))
+                                .map(|profile| profile.path.clone())
+                        }
+                    })
+                    .ok()
+                    .flatten();
+                let Some(path) = path else { break };
+                let stats = cx
+                    .background_executor()
+                    .spawn(async move { vpn_engine::transfer_stats(&path).ok() })
+                    .await;
+                if this
+                    .update(cx, |this, cx| {
+                        if let Some(stats) = stats {
+                            this.transfer_stats = stats;
+                            cx.notify();
+                        }
+                    })
+                    .is_err()
+                {
+                    break;
+                }
+            }
+        })
+        .detach();
+    }
+
+    fn run_privileged_operation(&mut self, operation: PrivilegedOperation, cx: &mut Context<Self>) {
+        self.privilege_prompt = None;
+        let profile_path = self
+            .selected_profile
+            .and_then(|index| self.profiles.get(index))
+            .map(|profile| profile.path.clone());
+        let connected = self.vpn_status == "Connected";
+        self.vpn_status = match operation {
+            PrivilegedOperation::Connect => "Connecting".into(),
+            PrivilegedOperation::Disconnect => "Disconnecting".into(),
+            PrivilegedOperation::SetLockdown(_) => self.vpn_status.clone(),
+        };
+        cx.notify();
+
+        cx.spawn(async move |this, cx| {
+            let result = cx
+                .background_executor()
+                .spawn(async move { run_privileged_operation(operation, profile_path, connected) })
+                .await;
+            let _ = this.update(cx, |this, cx| {
+                match result {
+                    Ok(()) => match operation {
+                        PrivilegedOperation::Connect => {
+                            this.vpn_status = "Connected".into();
+                            if this.vpn_status == "Connected" {
+                                this.transfer_stats = vpn_engine::TransferStats::default();
+                                this.poll_transfer_stats(cx);
+                            }
+                        }
+                        PrivilegedOperation::Disconnect => {
+                            this.vpn_status = "Disconnected".into();
+                            this.stats_poll_started = false;
+                            this.transfer_stats = vpn_engine::TransferStats::default();
+                        }
+                        PrivilegedOperation::SetLockdown(enabled) => {
+                            this.lockdown = enabled;
+                            this.security_notice = None;
+                            this.save();
+                        }
+                    },
+                    Err(error) => match operation {
+                        PrivilegedOperation::SetLockdown(_) => {
+                            this.security_notice =
+                                Some(format!("Could not change Lockdown Mode: {error:#}"))
+                        }
+                        PrivilegedOperation::Connect => {
+                            this.vpn_status = format!("Could not connect: {error:#}");
+                        }
+                        PrivilegedOperation::Disconnect => {
+                            this.vpn_status = format!("Could not disconnect: {error:#}");
+                        }
+                    },
+                }
+                this.lockdown_service_active = vpn_engine::lockdown_active();
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
     fn new(prefs: Preferences, cx: &mut Context<Self>) -> Self {
         let owner = cx.entity_id();
+        let profiles = vpn_engine::profiles().unwrap_or_default();
+        let selected_profile = (!profiles.is_empty()).then_some(0);
         Self {
             page: Page::Home,
             theme: prefs.theme,
@@ -299,6 +516,18 @@ impl BaseApp {
             focus: cx.focus_handle(),
             scrollbar: cx.new(|_| Scrollbar::new(ScrollHandle::new()).watching(owner)),
             appearance_observer: None,
+            vpn_status: selected_profile
+                .and_then(|index| profiles.get(index))
+                .map(|profile| vpn_engine::tunnel_status_for(&profile.path))
+                .unwrap_or_else(|| "Disconnected".into()),
+            transfer_stats: vpn_engine::TransferStats::default(),
+            stats_poll_started: false,
+            profiles,
+            selected_profile,
+            lockdown: vpn_engine::lockdown_active(),
+            lockdown_service_active: vpn_engine::lockdown_active(),
+            security_notice: None,
+            privilege_prompt: None,
         }
     }
 
@@ -375,6 +604,8 @@ impl BaseApp {
                 div()
                     .flex()
                     .flex_col()
+                    .flex_1()
+                    .min_w_0()
                     .gap_1()
                     .child(div().text_color(theme.foreground).child(title.into()))
                     .child(
@@ -406,7 +637,8 @@ impl Render for BaseApp {
             .border_color(theme.sidebar_border)
             .children(
                 [
-                    (Page::Home, "nav-home", "icons/house.svg"),
+                    (Page::Home, "nav-vpn", "icons/lock.svg"),
+                    (Page::Security, "nav-security", "icons/lock.svg"),
                     (Page::Appearance, "nav-settings", "icons/settings.svg"),
                 ]
                 .into_iter()
@@ -419,7 +651,11 @@ impl Render for BaseApp {
                     };
                     Button::new(format!("nav-{label}"))
                         .ghost()
-                        .label(i18n::lookup(label, None))
+                        .label(match page {
+                            Page::Home => "VPN".into(),
+                            Page::Security => "Security".into(),
+                            Page::Appearance => i18n::lookup(label, None),
+                        })
                         .icon(icons::path(icon))
                         .tint(tint)
                         .gap_2p5()
@@ -435,14 +671,88 @@ impl Render for BaseApp {
             );
 
         let content = match self.page {
-            Page::Home => div()
-                .flex()
-                .flex_1()
-                .items_center()
-                .justify_center()
-                .text_color(theme.foreground)
-                .text_size(theme.text(ui::Text::Large))
-                .child("hi")
+            Page::Home => {
+                let status = self.vpn_status.clone();
+                let selected = self.selected_profile;
+                let profiles = self.profiles.clone();
+                let selected_label = selected.and_then(|index| profiles.get(index))
+                    .map(|profile| format!("{} · {}", profile.name, profile.endpoint))
+                    .unwrap_or_else(|| "Choose a server".into());
+                let server_picker = Picker::new("vpn-server", &self.popovers, selected_label)
+                    .width(Picker::REGULAR)
+                    .items(profiles.iter().enumerate().map(|(index, profile)| {
+                        let path = profile.path.clone();
+                        let label = format!("{} · {}", profile.name, profile.endpoint);
+                        MenuItem::new(format!("vpn-server-{index}"), label.clone())
+                            .selected(Some(index) == selected)
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                this.selected_profile = Some(index);
+                                this.vpn_status = vpn_engine::tunnel_status_for(&path);
+                                cx.notify();
+                            }))
+                    }))
+                    .into_any_element();
+                let has_profile = selected.and_then(|index| profiles.get(index)).is_some();
+                let connected = status == "Connected";
+                let busy = status == "Connecting" || status == "Disconnecting";
+                let transfer = if connected {
+                    format!("↑ {}   ↓ {}", format_bytes(self.transfer_stats.sent_bytes), format_bytes(self.transfer_stats.received_bytes))
+                } else {
+                    "Traffic totals appear here while connected".to_string()
+                };
+                div()
+                    .flex()
+                    .flex_1()
+                    .flex_col()
+                    .items_center()
+                    .justify_center()
+                    .gap_4()
+                    .text_color(theme.foreground)
+                    .child(div().text_size(theme.text(ui::Text::Title)).child("RosesVPN"))
+                    .child(div().text_size(theme.text(ui::Text::Body)).child(if connected { "Connected · WireGuard".to_string() } else { status.clone() }))
+                    .child(div().text_size(theme.text(ui::Text::Body)).text_color(theme.muted_foreground).child(transfer))
+                    .child(server_picker)
+                    .child(
+                        div().flex().gap_3()
+                            .child(Button::new("vpn-connect").primary().label("Connect").disabled(!has_profile || connected || busy)
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.privilege_prompt = Some(PrivilegedOperation::Connect);
+                                    cx.notify();
+                                })))
+                            .child(Button::new("vpn-disconnect").secondary().label("Disconnect").disabled(!has_profile || !connected || busy)
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.privilege_prompt = Some(PrivilegedOperation::Disconnect);
+                                    cx.notify();
+                                }))),
+                    )
+                    .child(Button::new("vpn-import").outline().label("＋  Import WireGuard configuration")
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            if let Some(path) = choose_wireguard_config() {
+                                match vpn_engine::install_config(&path) {
+                                    Ok(installed) => {
+                                        this.profiles = vpn_engine::profiles().unwrap_or_default();
+                                        this.selected_profile = this.profiles.iter().position(|profile| profile.path == installed);
+                                        this.vpn_status = "Disconnected".into();
+                                    }
+                                    Err(error) => this.vpn_status = format!("Import failed: {error:#}"),
+                                }
+                                cx.notify();
+                            }
+                        })))
+                    .child(div().text_color(theme.muted_foreground).text_size(theme.text(ui::Text::Small)).child("WireGuard tunnel with native platform firewall protection. Kill Switch is installed automatically while connecting."))
+                    .into_any_element()
+            },
+            Page::Security => div()
+                .flex().flex_1().flex_col().p_8().gap_5().w_full().max_w(px(720.))
+                .child(div().text_size(theme.text(ui::Text::Title)).text_color(theme.foreground).child("Security"))
+                .child(self.row("Kill Switch", "Blocks outbound traffic outside the VPN tunnel while a connection is active. It is removed after a normal disconnect.", Switch::new("kill-switch-status", self.vpn_status == "Connected").disabled(true).into_any_element(), cx))
+                .child(self.row("Lockdown Mode", if cfg!(target_os = "windows") { "Keeps outbound traffic blocked after disconnect and across restarts. Requires administrator approval; switch it off to restore access." } else { "Keeps outbound traffic blocked after disconnect. Requires administrator approval; reapply it after a system restart." }, Switch::new("lockdown", self.lockdown).on_click(cx.listener(|this, _, _, cx| {
+                    let enabled = !this.lockdown;
+                    this.privilege_prompt = Some(PrivilegedOperation::SetLockdown(enabled));
+                    cx.notify();
+                })).into_any_element(), cx))
+                .when_some(self.security_notice.clone(), |el, notice| el.child(div().text_color(theme.danger).text_size(theme.text(ui::Text::Small)).child(notice)))
+                .child(div().text_color(theme.muted_foreground).text_size(theme.text(ui::Text::Small)).child(if cfg!(target_os = "windows") { "Windows uses Windows Filtering Platform rules. Lockdown rules persist until you turn them off; Kill Switch rules apply for the lifetime of the tunnel." } else { "Linux uses an isolated nftables output policy for the VPN endpoint, tunnel, and essential network control traffic." }))
                 .into_any_element(),
             Page::Appearance => {
                 let packs = icons::packs().collect::<Vec<_>>();
@@ -955,6 +1265,37 @@ impl Render for BaseApp {
                     .child(sidebar)
                     .child(content)
             })
+            .when_some(self.privilege_prompt, |root, operation| {
+                root.child(
+                    ui::Modal::new("administrator-access", "Administrator access")
+                        .detail("RosesVPN needs permission to change your network configuration.")
+                        .child(div().text_color(theme.foreground).child(
+                            "The next step asks Windows for administrator approval or opens your Linux authentication prompt. RosesVPN uses this access only to set up or remove its encrypted tunnel and network protection rules. Canceling keeps your current network settings unchanged.",
+                        ))
+                        .action(
+                            Button::new("administrator-cancel")
+                                .outline()
+                                .label("Cancel")
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.privilege_prompt = None;
+                                    cx.notify();
+                                })),
+                        )
+                        .action(
+                            Button::new("administrator-continue")
+                                .primary()
+                                .label("Continue")
+                                .on_click(cx.listener(move |this, _, _, cx| {
+                                    this.run_privileged_operation(operation, cx);
+                                    cx.notify();
+                                })),
+                        )
+                        .on_dismiss(cx.listener(|this, _, _, cx| {
+                            this.privilege_prompt = None;
+                            cx.notify();
+                        })),
+                )
+            })
     }
 }
 
@@ -970,6 +1311,14 @@ fn shaded(color: Hsla) -> Hsla {
 }
 
 fn main() {
+    let mut args = std::env::args_os().skip(1);
+    if args.next().as_deref() == Some(std::ffi::OsStr::new("--admin-helper")) {
+        if let Err(error) = vpn_engine::run_admin_helper(args) {
+            eprintln!("{error:#}");
+            std::process::exit(1);
+        }
+        return;
+    }
     env_logger::init();
     i18n::set(i18n::resolve("en"));
     let prefs = Preferences::load();
@@ -997,13 +1346,13 @@ fn main() {
                     window_bounds: Some(bounds),
                     window_background: ui::backdrop(prefs.blur_window, prefs.transparent),
                     titlebar: Some(TitlebarOptions {
-                        title: Some("baseapp".into()),
+                        title: Some("RosesVPN".into()),
                         appears_transparent: true,
                         ..Default::default()
                     }),
                     app_owns_titlebar_drag: true,
                     window_min_size: Some(gpui::size(px(480.), px(400.))),
-                    app_id: Some("baseapp".into()),
+                    app_id: Some("rosesvpn".into()),
                     ..Default::default()
                 },
                 |window, cx| {
