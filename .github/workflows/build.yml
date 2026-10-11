@@ -115,7 +115,7 @@ jobs:
           cargo build --release --locked -p rosesvpn
 
       - name: Package DEB and portable tarball
-        run: packaging/linux/build-packages.sh target/release/rosesvpn "${{ steps.version.outputs.version }}" dist
+        run: bash packaging/linux/build-packages.sh target/release/rosesvpn "${{ steps.version.outputs.version }}" dist
 
       - name: Smoke-test DEB metadata and binary
         run: |
