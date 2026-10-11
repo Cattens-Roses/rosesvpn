@@ -28,7 +28,7 @@ image = { version = "0.25", default-features = false, features = [
   "webp",
 ] }
 log = "0.4"
-objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSMenu", "NSMenuItem", "NSResponder", "NSWorkspace"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSAccessibility", "NSApplication", "NSMenu", "NSMenuItem", "NSResponder", "NSWorkspace"] }
 ashpd = { version = "0.13", default-features = false, features = ["async-io", "inhibit", "settings"] }
 windows-sys = { version = "0.61", features = ["Win32_Graphics_Dwm", "Win32_Graphics_Gdi", "Win32_System_Power", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
 serde = { version = "1.0", features = ["derive", "rc"] }
