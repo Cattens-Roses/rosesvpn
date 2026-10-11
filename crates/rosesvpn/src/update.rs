@@ -134,9 +134,16 @@ fn validate_asset(asset: &UpdateAsset) -> anyhow::Result<()> {
 
 fn curl() -> Command {
     #[cfg(windows)]
-    let command = Command::new("curl.exe");
+    let mut command = Command::new("curl.exe");
     #[cfg(not(windows))]
     let command = Command::new("curl");
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(windows_sys::Win32::System::Threading::CREATE_NO_WINDOW);
+    }
+
     command
 }
 
