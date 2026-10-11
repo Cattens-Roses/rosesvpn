@@ -1,5 +1,5 @@
 {
-  description = "Sonora - a native music streaming client";
+  description = "Sonora Base - a native desktop UI shell";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -289,7 +289,7 @@
             '';
 
             meta = {
-              description = "A native music streaming client, built with Rust and GPUI";
+              description = "A minimal native desktop app with Sonora's UI and appearance settings";
               mainProgram = "sonora";
               license = with lib.licenses; [
                 gpl3Plus
