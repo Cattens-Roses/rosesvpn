@@ -5,7 +5,8 @@ use std::io::Read;
 use std::path::PathBuf;
 use std::process::Command;
 
-const MANIFEST_URL: &str = "https://github.com/Cattens-Roses/rosesvpn/releases/download/continuous/update-manifest.json";
+const MANIFEST_URL: &str =
+    "https://github.com/Cattens-Roses/rosesvpn/releases/download/continuous/update-manifest.json";
 const RELEASE_ASSET_PREFIX: &str =
     "https://github.com/Cattens-Roses/rosesvpn/releases/download/continuous/";
 
@@ -50,7 +51,10 @@ pub fn check_for_update(current_version: &str) -> anyhow::Result<Option<Availabl
     if std::env::var_os("ROSESVPN_DISABLE_UPDATE").is_some() {
         return Ok(None);
     }
-    anyhow::ensure!(PLATFORM != "unsupported", "automatic updates are not available for this platform");
+    anyhow::ensure!(
+        PLATFORM != "unsupported",
+        "automatic updates are not available for this platform"
+    );
 
     let output = curl()
         .args([
@@ -72,10 +76,17 @@ pub fn check_for_update(current_version: &str) -> anyhow::Result<Option<Availabl
         "Could not download the update manifest: {}",
         String::from_utf8_lossy(&output.stderr).trim()
     );
-    ensure!(output.stdout.len() <= 128 * 1024, "Update manifest is unexpectedly large");
+    ensure!(
+        output.stdout.len() <= 128 * 1024,
+        "Update manifest is unexpectedly large"
+    );
 
-    let manifest: Manifest = serde_json::from_slice(&output.stdout).context("Invalid update manifest")?;
-    ensure!(manifest.product == "RosesVPN", "Update manifest belongs to another product");
+    let manifest: Manifest =
+        serde_json::from_slice(&output.stdout).context("Invalid update manifest")?;
+    ensure!(
+        manifest.product == "RosesVPN",
+        "Update manifest belongs to another product"
+    );
     if manifest.version == current_version {
         return Ok(None);
     }
@@ -104,9 +115,15 @@ fn validate_asset(asset: &UpdateAsset) -> anyhow::Result<()> {
         asset.sha256.len() == 64 && asset.sha256.bytes().all(|byte| byte.is_ascii_hexdigit()),
         "Update asset has an invalid SHA-256 hash"
     );
-    ensure!(asset.size > 0 && asset.size <= 512 * 1024 * 1024, "Update asset size is invalid");
+    ensure!(
+        asset.size > 0 && asset.size <= 512 * 1024 * 1024,
+        "Update asset size is invalid"
+    );
     #[cfg(windows)]
-    ensure!(asset.name == "RosesVPN-Setup.exe", "Unexpected Windows update installer");
+    ensure!(
+        asset.name == "RosesVPN-Setup.exe",
+        "Unexpected Windows update installer"
+    );
     #[cfg(target_os = "linux")]
     ensure!(
         asset.name.starts_with("rosesvpn_") && asset.name.ends_with("_amd64.deb"),
@@ -172,7 +189,10 @@ pub fn download_and_launch(asset: &UpdateAsset) -> anyhow::Result<()> {
             hasher.update(&buffer[..read]);
         }
         let digest = format!("{:x}", hasher.finalize());
-        ensure!(digest.eq_ignore_ascii_case(&asset.sha256), "Downloaded update failed SHA-256 verification");
+        ensure!(
+            digest.eq_ignore_ascii_case(&asset.sha256),
+            "Downloaded update failed SHA-256 verification"
+        );
         Ok(())
     })();
     if let Err(error) = verify {
