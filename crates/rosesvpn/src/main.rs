@@ -1474,6 +1474,8 @@ fn main() {
                         ..Default::default()
                     }),
                     app_owns_titlebar_drag: true,
+                    #[cfg(target_os = "linux")]
+                    window_decorations: Some(gpui::WindowDecorations::Client),
                     window_min_size: Some(gpui::size(px(480.), px(400.))),
                     app_id: Some("rosesvpn".into()),
                     ..Default::default()
