@@ -50,7 +50,7 @@ jobs:
         run: cargo fmt --all --check
 
       - name: Check desktop application
-        run: cargo check --locked -p baseapp
+        run: cargo check --locked -p rosesvpn
 
       - name: Test VPN engine
         run: cargo test --locked -p vpn-engine

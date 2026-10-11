@@ -47,8 +47,8 @@ Linux Lockdown currently uses runtime nftables rules. Re-enable Lockdown after r
 Build and launch the desktop client:
 
 ```sh
-cargo build --locked -p baseapp
-cargo run --locked -p baseapp
+cargo build --locked -p rosesvpn
+cargo run --locked -p rosesvpn
 ```
 
 The app stores imported profiles in `%APPDATA%/RosesVPN/servers/` on Windows and `$XDG_CONFIG_HOME/RosesVPN/servers/` on Linux (or `$HOME/.config/RosesVPN/servers/` when `XDG_CONFIG_HOME` is unset). Import profiles through the app's profile controls. Connecting and toggling firewall protections asks the OS to authorize the privileged tunnel worker (`UAC` on Windows, `pkexec` on Linux).
@@ -57,7 +57,7 @@ The app stores imported profiles in `%APPDATA%/RosesVPN/servers/` on Windows and
 
 ```sh
 cargo fmt --all --check
-cargo check --locked -p baseapp
+cargo check --locked -p rosesvpn
 cargo test --locked -p vpn-engine
 ```
 

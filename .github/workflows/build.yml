@@ -54,7 +54,7 @@ jobs:
           key: ${{ matrix.target }}
 
       - name: Build RosesVPN
-        run: cargo build --release --locked -p baseapp --target ${{ matrix.target }}
+        run: cargo build --release --locked -p rosesvpn --target ${{ matrix.target }}
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4

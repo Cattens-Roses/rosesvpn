@@ -1,16 +1,16 @@
-# Contributing to baseapp
+# Contributing to RosesVPN
 
-baseapp is a reusable desktop shell built with Rust and GPUI.
+RosesVPN is a desktop VPN client built with Rust and GPUI.
 
 ## Build
 
 ```sh
-cargo run -p baseapp
-cargo check -p baseapp
+cargo run -p rosesvpn
+cargo check -p rosesvpn
 ```
 
-Keep the application focused on its desktop shell and Appearance settings. Prefer the existing
-components and theme tokens from `crates/ui`, and keep user-facing text concise.
+Keep VPN behavior in `crates/vpn-engine` and use the existing GPUI components and theme tokens
+from `crates/ui`. Keep user-facing text concise.
 
 ## Licensing
 

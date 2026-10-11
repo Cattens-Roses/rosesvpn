@@ -16,7 +16,7 @@
   {
     "label": "Check",
     "command": "cargo check",
-    "args": ["-p", "baseapp"],
+    "args": ["-p", "rosesvpn"],
     "working_directory": "{{WORKSPACE_ROOT}}",
     "hide": "on_success"
   },

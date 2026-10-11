@@ -22,11 +22,11 @@ fn main() {
             .expect("could not create WireGuardNT resource directory");
         fs::copy(&dll, &bundled).expect("could not bundle the official WireGuardNT DLL");
     }
-    let icon = workspace.join("assets/windows/baseapp.ico");
+    let icon = workspace.join("assets/windows/rosesvpn.ico");
     println!("cargo:rerun-if-changed={}", icon.display());
 
     let out = PathBuf::from(env::var_os("OUT_DIR").expect("Cargo sets the output directory"));
-    let resource = out.join("baseapp-icon.rc");
+    let resource = out.join("rosesvpn-icon.rc");
     let icon = icon.to_string_lossy().replace('\\', "\\\\");
     fs::write(
         &resource,

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/baseapp", "crates/ui", "crates/icons", "crates/i18n", "crates/embed", "crates/vpn-engine"]
+members = ["crates/rosesvpn", "crates/ui", "crates/icons", "crates/i18n", "crates/embed", "crates/vpn-engine"]
 
 [workspace.package]
 version = "0.42.2"

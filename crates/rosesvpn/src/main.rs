@@ -135,7 +135,7 @@ struct AmbientTransition {
     started: Instant,
 }
 
-struct BaseApp {
+struct RosesVpn {
     page: Page,
     theme: ThemeKind,
     rounding: Rounding,
@@ -382,7 +382,7 @@ fn format_bytes(bytes: u64) -> String {
     }
 }
 
-impl BaseApp {
+impl RosesVpn {
     fn poll_transfer_stats(&mut self, cx: &mut Context<Self>) {
         if self.stats_poll_started {
             return;
@@ -619,7 +619,7 @@ impl BaseApp {
     }
 }
 
-impl Render for BaseApp {
+impl Render for RosesVpn {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = *cx.theme();
         let sidebar_open = self.sidebar_open;
@@ -1357,7 +1357,7 @@ fn main() {
                 },
                 |window, cx| {
                     window.set_rem_size(cx.theme().font_size);
-                    let view = cx.new(|cx| BaseApp::new(prefs, cx));
+                    let view = cx.new(|cx| RosesVpn::new(prefs, cx));
                     view.update(cx, |this, cx| {
                         this.appearance_observer =
                             Some(cx.observe_window_appearance(window, |this, window, cx| {

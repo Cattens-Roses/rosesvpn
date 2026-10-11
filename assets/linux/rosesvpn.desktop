@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=RosesVPN
+GenericName=VPN Client
+Comment=Desktop VPN client with WireGuard support
+Icon=rosesvpn
+Exec=rosesvpn
+Terminal=false
+Categories=Network;Security;
+StartupWMClass=rosesvpn
+StartupNotify=true
