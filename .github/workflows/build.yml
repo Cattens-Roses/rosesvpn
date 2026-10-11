@@ -83,7 +83,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential pkg-config cmake mold dpkg-dev xvfb xinput \
+            build-essential pkg-config cmake mold dpkg-dev xvfb mesa-vulkan-drivers \
             libfontconfig1-dev libfreetype-dev \
             libx11-dev libx11-xcb-dev libxcb1-dev libxcb-render0-dev \
             libxcb-shape0-dev libxcb-xfixes0-dev libxcb-xkb-dev \
@@ -126,7 +126,9 @@ jobs:
           ! grep -q 'not found' dist/ldd.txt
           mkdir -p /tmp/rosesvpn-xvfb-home
           set +e
-          xvfb-run -a bash -c 'xinput create-master RosesVPN && env HOME=/tmp/rosesvpn-xvfb-home ROSESVPN_DISABLE_UPDATE=1 LIBGL_ALWAYS_SOFTWARE=1 timeout 8s target/release/rosesvpn' >dist/gui-smoke.log 2>&1
+          VK_ICD_FILENAMES="$(find /usr/share/vulkan/icd.d -maxdepth 1 -name 'lvp_icd*.json' -print -quit)"
+          test -n "$VK_ICD_FILENAMES"
+          xvfb-run -a env HOME=/tmp/rosesvpn-xvfb-home ROSESVPN_DISABLE_UPDATE=1 LIBGL_ALWAYS_SOFTWARE=1 VK_ICD_FILENAMES="$VK_ICD_FILENAMES" timeout 8s target/release/rosesvpn >dist/gui-smoke.log 2>&1
           code=$?
           set -e
           cat dist/gui-smoke.log
