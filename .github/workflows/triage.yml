@@ -39,14 +39,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # With the app configured the timeline says Sonora Buddy and carries its icon. Without
+      # With the app configured the timeline says RosesVPN bot and carries its icon. Without
       # it everything still works, signed github-actions.
       - uses: actions/create-github-app-token@v3
         id: buddy
-        if: vars.SONORA_BUDDY_APP_ID != ''
+        if: vars.ROSESVPN_BOT_APP_ID != ''
         with:
-          app-id: ${{ vars.SONORA_BUDDY_APP_ID }}
-          private-key: ${{ secrets.SONORA_BUDDY_KEY }}
+          app-id: ${{ vars.ROSESVPN_BOT_APP_ID }}
+          private-key: ${{ secrets.ROSESVPN_BOT_KEY }}
 
       - name: label, assign and ask for what is missing
         env:

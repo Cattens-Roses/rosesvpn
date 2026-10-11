@@ -1,65 +1,200 @@
-name: Build RosesVPN
+name: Build and Release
 
 on:
   push:
-    branches: [main, master]
-    tags: ["v*"]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
 concurrency:
-  group: build-${{ github.ref }}
+  group: release-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
-  CARGO_PROFILE_RELEASE_STRIP: symbols
 
 jobs:
-  build:
-    name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: Linux x64
-            os: ubuntu-24.04
-            target: x86_64-unknown-linux-gnu
-          - name: Windows x64
-            os: windows-latest
-            target: x86_64-pc-windows-msvc
+  windows:
+    name: Windows installer and portable build
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
 
-      - name: Install Linux build dependencies
-        if: runner.os == 'Linux'
+      - uses: dtolnay/rust-toolchain@1.98.1
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: windows-x64
+
+      - name: Set build version
+        id: version
+        shell: pwsh
+        run: |
+          $manifest = Get-Content Cargo.toml -Raw
+          $base = [regex]::Match($manifest, '(?m)^version\s*=\s*"([^"]+)"').Groups[1].Value
+          $version = "$base+$env:GITHUB_SHA".Substring(0, $base.Length + 8)
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "ROSESVPN_BUILD_VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Check and test
+        run: |
+          cargo check --locked -p rosesvpn
+          cargo test --locked -p vpn-engine
+
+      - name: Build desktop app
+        run: cargo build --release --locked -p rosesvpn
+
+      - name: Package setup and portable ZIP
+        shell: pwsh
+        env:
+          ROSESVPN_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          choco install innosetup --yes --no-progress
+          $stage = Join-Path $env:GITHUB_WORKSPACE 'dist\windows-stage'
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item target\release\rosesvpn.exe $stage
+          Copy-Item target\release\resources-windows $stage -Recurse
+          Compress-Archive -Path "$stage\*" -DestinationPath dist\RosesVPN-Windows-Portable.zip -Force
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) { throw "Inno Setup compiler not found: $iscc" }
+          & $iscc "/DAppVersion=$env:ROSESVPN_VERSION" "/DSourceDir=$stage" "/DOutputDir=$env:GITHUB_WORKSPACE\dist" packaging\windows\rosesvpn.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed with exit code $LASTEXITCODE" }
+          Get-ChildItem dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rosesvpn-windows-x64
+          path: dist/RosesVPN-*
+          if-no-files-found: error
+          retention-days: 14
+
+  linux:
+    name: Linux DEB and portable build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Linux build and package dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential pkg-config cmake mold \
+            build-essential pkg-config cmake mold dpkg-dev xvfb \
             libfontconfig1-dev libfreetype-dev \
             libx11-dev libx11-xcb-dev libxcb1-dev libxcb-render0-dev \
             libxcb-shape0-dev libxcb-xfixes0-dev libxcb-xkb-dev \
             libxcb-randr0-dev libxcb-xinerama0-dev libxcb-cursor-dev \
             libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
-            libvulkan-dev
+            libvulkan-dev nftables iproute2 policykit-1 curl
 
       - uses: dtolnay/rust-toolchain@1.98.1
         with:
-          targets: ${{ matrix.target }}
+          targets: x86_64-unknown-linux-gnu
 
       - uses: Swatinem/rust-cache@v2
         with:
-          key: ${{ matrix.target }}
+          key: linux-x64
 
-      - name: Build RosesVPN
-        run: cargo build --release --locked -p rosesvpn --target ${{ matrix.target }}
+      - name: Set build version
+        id: version
+        run: |
+          BASE_VERSION="$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -n1)"
+          VERSION="${BASE_VERSION}+${GITHUB_SHA:0:7}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "ROSESVPN_BUILD_VERSION=$VERSION" >> "$GITHUB_ENV"
 
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+      - name: Check, test, and build
+        run: |
+          cargo fmt --all --check
+          cargo check --locked -p rosesvpn
+          cargo test --locked -p vpn-engine
+          cargo build --release --locked -p rosesvpn
+
+      - name: Package DEB and portable tarball
+        run: packaging/linux/build-packages.sh target/release/rosesvpn "${{ steps.version.outputs.version }}" dist
+
+      - name: Smoke-test DEB metadata and binary
+        run: |
+          set -euo pipefail
+          dpkg-deb --info dist/rosesvpn_*.deb
+          dpkg-deb --contents dist/rosesvpn_*.deb
+          ldd target/release/rosesvpn | tee dist/ldd.txt
+          ! grep -q 'not found' dist/ldd.txt
+          mkdir -p /tmp/rosesvpn-xvfb-home
+          set +e
+          env HOME=/tmp/rosesvpn-xvfb-home ROSESVPN_DISABLE_UPDATE=1 LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a timeout 8s target/release/rosesvpn >dist/gui-smoke.log 2>&1
+          code=$?
+          set -e
+          cat dist/gui-smoke.log
+          if [ "$code" -ne 124 ] && [ "$code" -ne 0 ]; then
+            echo "RosesVPN GUI smoke test exited unexpectedly with $code"
+            exit "$code"
+          fi
+
+      - uses: actions/upload-artifact@v4
         with:
-          name: rosesvpn-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/rosesvpn${{ runner.os == 'Windows' && '.exe' || '' }}
+          name: rosesvpn-linux-x64
+          path: |
+            dist/rosesvpn_*.deb
+            dist/RosesVPN-Linux-Portable.tar.gz
           if-no-files-found: error
           retention-days: 14
+
+  release:
+    name: Publish continuous and versioned releases
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    needs: [windows, linux]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Generate update manifest and checksums
+        id: metadata
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          BASE_VERSION="$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -n1)"
+          VERSION="${BASE_VERSION}+${GITHUB_SHA:0:7}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          python3 packaging/create-update-manifest.py dist "$VERSION" "$GITHUB_SHA"
+          (cd dist && sha256sum RosesVPN-Setup.exe RosesVPN-Windows-Portable.zip rosesvpn_*.deb RosesVPN-Linux-Portable.tar.gz update-manifest.json > CHECKSUMS.txt)
+
+      - name: Publish release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.metadata.outputs.version }}
+        run: |
+          set -euo pipefail
+          TAG="v${VERSION}"
+          NOTES=$(cat <<EOF
+          Automated RosesVPN build from main (${GITHUB_SHA:0:7}).
+
+          Downloads include the Windows per-user installer and portable ZIP, and the Linux DEB and portable tarball. See README.md for installation and update details.
+          EOF
+          )
+
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "RosesVPN ${VERSION}" --notes "$NOTES" --latest
+          fi
+
+          git tag -f continuous "$GITHUB_SHA"
+          git push --force origin refs/tags/continuous
+          if gh release view continuous --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit continuous --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "RosesVPN continuous build (${VERSION})" --notes "$NOTES" --latest=false
+          else
+            gh release create continuous --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "RosesVPN continuous build (${VERSION})" --notes "$NOTES" --latest=false
+          fi
+          gh release upload continuous dist/* --repo "$GITHUB_REPOSITORY" --clobber

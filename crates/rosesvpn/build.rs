@@ -1,6 +1,11 @@
 use std::{env, fs, path::PathBuf};
 
 fn main() {
+    println!("cargo:rerun-if-env-changed=ROSESVPN_BUILD_VERSION");
+    let version = env::var("ROSESVPN_BUILD_VERSION")
+        .unwrap_or_else(|_| env!("CARGO_PKG_VERSION").to_string());
+    println!("cargo:rustc-env=ROSESVPN_BUILD_VERSION={version}");
+
     let manifest = PathBuf::from(
         env::var_os("CARGO_MANIFEST_DIR").expect("Cargo sets the manifest directory"),
     );

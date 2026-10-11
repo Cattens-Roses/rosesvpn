@@ -1,10 +1,11 @@
 [workspace]
 resolver = "3"
-members = ["crates/rosesvpn", "crates/ui", "crates/icons", "crates/i18n", "crates/embed", "crates/vpn-engine"]
+members = ["crates/rosesvpn", "crates/ui", "crates/icons", "crates/i18n", "crates/embed", "crates/vpn-engine", "vendor/gpui/crates/*", "vendor/gpui/crates/refineable/derive_refineable", "vendor/gpui/tooling/*"]
 
 [workspace.package]
 version = "0.42.2"
 edition = "2024"
+publish = false
 license = "GPL-3.0-or-later"
 
 [workspace.dependencies]
@@ -16,8 +17,8 @@ anyhow = "1.0"
 env_logger = "0.11"
 futures = "0.3"
 fluent-bundle = "0.16"
-gpui = { git = "https://github.com/sonorahq/gpui", rev = "5ff26c7dedb1c8e27b69f89be13ce2744484874a" }
-gpui_platform = { git = "https://github.com/sonorahq/gpui", rev = "5ff26c7dedb1c8e27b69f89be13ce2744484874a", features = [
+gpui = { path = "vendor/gpui/crates/gpui" }
+gpui_platform = { path = "vendor/gpui/crates/gpui_platform", features = [
   "font-kit",
   "wayland",
   "x11",
@@ -25,16 +26,398 @@ gpui_platform = { git = "https://github.com/sonorahq/gpui", rev = "5ff26c7dedb1c
 image = { version = "0.25", default-features = false, features = [
   "jpeg",
   "png",
+  "gif",
   "webp",
 ] }
 log = "0.4"
 objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSAccessibility", "NSApplication", "NSMenu", "NSMenuItem", "NSResponder", "NSWorkspace"] }
-ashpd = { version = "0.13", default-features = false, features = ["async-io", "inhibit", "settings"] }
+ashpd = { version = "0.13", default-features = false, features = ["async-io", "file_chooser", "inhibit", "open_uri", "settings", "trash"] }
 windows-sys = { version = "0.61", features = ["Win32_Graphics_Dwm", "Win32_Graphics_Gdi", "Win32_System_Power", "Win32_System_Registry", "Win32_System_Threading", "Win32_System_Rpc", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging", "Win32_UI_Controls_Dialogs", "Win32_NetworkManagement_WindowsFilteringPlatform", "Win32_NetworkManagement_IpHelper", "Win32_NetworkManagement_Ndis", "Win32_Security"] }
 serde = { version = "1.0", features = ["derive", "rc"] }
+serde_json = "1.0"
+sha2 = "0.10"
 sys-locale = "0.3"
 unic-langid = { version = "0.9", features = ["macros"] }
 unicode-segmentation = "1.12"
+
+http_client = { path = "vendor/gpui/crates/http_client" }
+yaml-rust2 = "0.8"
+libsqlite3-sys = { version = "0.30.1", features = ["bundled"] }
+heapless = "0.9.2"
+heed = { version = "0.21.0", features = ["read-txn-no-tls"] }
+core-graphics = "0.24"
+usvg = { version = "0.46.0", default-features = false }
+dap-types = { git = "https://github.com/zed-industries/dap-types", rev = "1b461b310481d01e02b2603c16d7144b926339f8" }
+tree-sitter-md = { git = "https://github.com/zed-industries/tree-sitter-markdown", rev = "b596e737286780d7bfa9fcddceaeeb754574b352" } # fork of 9a23c1a with serialize() buffer-overflow fix; https://github.com/tree-sitter-grammars/tree-sitter-markdown/issues/243
+tree-sitter-elixir = "0.3"
+pathfinder_geometry = "0.5"
+futures-concurrency = "7.7.1"
+imara-diff = "0.2.0"
+dotenvy = "0.15.0"
+tracing = "0.1.40"
+strsim = "0.11"
+seccompiler = "0.5"
+any_vec = "0.14"
+unicase = "2.6"
+heck = "0.5"
+exec = "0.3.1"
+async-dispatcher = "0.1"
+jupyter-protocol = "1.4.0"
+ztracing_macro = { path = "vendor/gpui/crates/ztracing_macro" }
+
+#
+# External crates
+#
+
+markup5ever_rcdom = "0.3.0"
+cocoa = "=0.26.0"
+accesskit = { version = "0.24.0", features = ["enumn"] }
+prost-build = "0.9"
+itertools = "0.14.0"
+metal = "0.33"
+tree-sitter-embedded-template = "0.23.0"
+rustls-platform-verifier = "0.5.0"
+# WARNING: If you change this, you must also publish a new version of zed-scap to crates.io
+tree-sitter-rust = "0.24.2"
+unicode-script = "0.5.7"
+zstd = "0.11"
+
+
+palette = { version = "0.7.5", default-features = false, features = ["std"] }
+simplelog = "0.12.2"
+cpal = "0.17"
+ignore = "0.4.22"
+# image's default features minus "avif", which only adds an encoder (rav1e);
+# decoding AVIF would additionally need the non-default "avif-native" feature.
+async-compat = "0.2.1"
+objc = "0.2"
+shlex = "1.3.0"
+nucleo = "0.5"
+jsonwebtoken = "10.0"
+brush-parser = "0.3"
+tokio = { version = "1" }
+const_format = "0.2"
+crash-handler = "0.7"
+core-video = { version = "0.5.2", features = ["metal"] }
+media = { path = "vendor/gpui/crates/media" }
+zeroize = "1.8"
+quick-xml = "0.38"
+tree-sitter-html = "0.23"
+cargo_metadata = "0.19"
+globset = "0.4"
+scheduler = { path = "vendor/gpui/crates/scheduler" }
+schemars = { version = "1.0", features = ["indexmap2"] }
+piper = "0.2"
+wasm-bindgen = "0.2.120"
+collections = { path = "vendor/gpui/crates/collections", version = "0.1.0" }
+block = "0.1"
+uuid = { version = "1.1.2", features = ["v4", "v5", "v7", "serde"] }
+prost-types = "0.9"
+syn = { version = "2.0.101", features = ["full", "extra-traits", "visit-mut"] }
+rayon = "1.8"
+derive_refineable = { path = "vendor/gpui/crates/refineable/derive_refineable" }
+wax = "0.7"
+rust-embed = { version = "8.11", features = ["include-exclude"] }
+js-sys = "0.3"
+serde_path_to_error = "0.1.17"
+prost = "0.9"
+aws-credential-types = { version = "1.2.8", features = [
+    "hardcoded-credentials",
+] }
+which = "6.0.0"
+dialoguer = { version = "0.12", default-features = false }
+pet-poetry = { git = "https://github.com/microsoft/python-environment-tools.git", rev = "bb8e04607b96a3865d6aa4bb2a5a5a82ce05b5f0" }
+async-std = { version = "1.12", features = ["unstable"] }
+brotli = "8.0.2"
+pretty_assertions = { version = "1.3.0", features = ["unstable"] }
+slotmap = "1.0.6"
+gpui_macros = { path = "vendor/gpui/crates/gpui_macros" }
+async-fs = "2.1"
+tree-sitter-yaml = { git = "https://github.com/zed-industries/tree-sitter-yaml", rev = "baff0b51c64ef6a1fb1f8390f3ad6015b83ec13a" }
+linkify = "0.10.0"
+clap_complete = { version = "4.4" }
+take-until = "0.2.0"
+smol = "2.0"
+fork = "0.4.0"
+tree-sitter-heex = { git = "https://github.com/zed-industries/tree-sitter-heex", rev = "1dd45142fbb05562e35b2040c6129c9bca346592" }
+libwebrtc = "0.3.26"
+encoding_rs = "0.8"
+util = { path = "vendor/gpui/crates/util" }
+partial-json-fixer = "0.5.3"
+moka = { version = "0.12.10", features = ["sync"] }
+aws-smithy-runtime-api = { version = "1.9.2", features = ["http-1x", "client"] }
+cbindgen = { version = "0.28.0", default-features = false }
+derive_more = { version = "2.1.1", features = [
+    "add",
+    "add_assign",
+    "deref",
+    "deref_mut",
+    "display",
+    "from_str",
+    "mul",
+    "mul_assign",
+    "not",
+] }
+gpui_shared_string = { path = "vendor/gpui/crates/gpui_shared_string" }
+tree-sitter-cpp = { git = "https://github.com/tree-sitter/tree-sitter-cpp", rev = "5cb9b693cfd7bfacab1d9ff4acac1a4150700609" }
+ordered-float = "2.1.1"
+tiny_http = "0.12"
+aws-sdk-bedrockruntime = { version = "1.112.0", features = [
+    "behavior-version-latest",
+] }
+html5ever = "0.27.0"
+wgpu = "29.0.4"
+zlog = { path = "vendor/gpui/crates/zlog" }
+web-time = "1.1.0"
+handlebars = "4.3"
+hdrhistogram = "7"
+async-channel = "2.5.0"
+webrtc-sys = "0.3.23"
+async-lock = "3.4.2"
+clap_complete_nushell = { version = "4.4" }
+tree-sitter-c = "0.24.1"
+pet-core = { git = "https://github.com/microsoft/python-environment-tools.git", rev = "bb8e04607b96a3865d6aa4bb2a5a5a82ce05b5f0" }
+mach2 = "0.5"
+agent-client-protocol = { version = "=2.0.0", features = ["unstable"] }
+console = "0.16"
+semver = { version = "1.0", features = ["serde"] }
+core-foundation = "0.10"
+etagere = "0.2"
+pathdiff = "0.2"
+core-foundation-sys = "0.8.6"
+livekit = { version = "0.7.32", features = ["tokio", "rustls-tls-native-roots"] }
+windows-registry = "0.6.0"
+sqlformat = "0.2"
+tower-http = "0.4.4"
+dirs = "6.0"
+lsp-types = { git = "https://github.com/zed-industries/lsp-types", rev = "f4dfa89a21ca35cd929b70354b1583fabae325f8" }
+human_bytes = "0.4.1"
+sum_tree = { path = "vendor/gpui/crates/sum_tree" }
+core-text = "21"
+tree-sitter = "0.26.9"
+strum = { version = "0.27.2", features = ["derive"] }
+tree-sitter-python = "0.25"
+yawc = { git = "https://github.com/zed-industries/yawc", rev = "71a452f551cac178367eaac5d7418a09afa1f3a2", version = "0.3.3" }
+dunce = "1.0"
+tree-sitter-go = "0.25"
+idna = "1.0"
+gpui_util = { path = "vendor/gpui/crates/gpui_util" }
+nix = "0.29"
+ctor = "1.0.12"
+async-compression = { version = "0.4", features = ["bzip2", "gzip", "futures-io"] }
+clap = { version = "4.4", features = ["derive", "wrap_help"] }
+unindent = "0.2.0"
+circular-buffer = "1.0"
+percent-encoding = "2.3.2"
+console_error_panic_hook = "0.1.7"
+wasmtime = { version = "36", default-features = false, features = [
+    "async",
+    "demangle",
+    "runtime",
+    "cranelift",
+    "component-model",
+    "incremental-cache",
+    "parallel-compilation",
+] }
+postage = { version = "0.5", features = ["futures-traits"] }
+indexmap = { version = "2.7.0", features = ["serde"] }
+notify-rust = "4"
+tree-sitter-gowork = { git = "https://github.com/zed-industries/tree-sitter-go-work", rev = "acb0617bf7f4fda02c6217676cc64acb89536dc7" }
+gpui_linux = { path = "vendor/gpui/crates/gpui_linux", default-features = false }
+hex = "0.4.3"
+async-process = "2.5.0"
+async-task = "4.7"
+tree-sitter-regex = "0.24"
+walkdir = "2.5"
+shellexpand = "3.1"
+ec4rs = { version = "1.2", features = ["allow-empty-values"] }
+async-io = "2.6.0"
+accesskit_macos = "0.26.0"
+wasm-bindgen-futures = "0.4"
+raw-window-handle = "0.6"
+futures-lite = "1.13"
+serde_yaml = "0.9.34"
+alacritty_terminal = { git = "https://github.com/zed-industries/alacritty", rev = "4c129667ce56611becdc82de6e28218c80e2e88f" }
+ciborium = "0.2"
+perf = { path = "vendor/gpui/tooling/perf" }
+pet-virtualenv = { git = "https://github.com/microsoft/python-environment-tools.git", rev = "bb8e04607b96a3865d6aa4bb2a5a5a82ce05b5f0" }
+convert_case = "0.11.0"
+chardetng = "0.1"
+resvg = { version = "0.46.0", default-features = false, features = [
+    "text",
+    "system-fonts",
+    "memmap-fonts",
+    "raster-images",
+] }
+wasmtime-wasi = "36"
+async-pipe = { git = "https://github.com/zed-industries/async-pipe-rs", rev = "82d00a04211cf4e1236029aa03e6b6ce2a74c553" }
+objc2-user-notifications = "0.3"
+backtrace = "0.3"
+gpui_macos = { path = "vendor/gpui/crates/gpui_macos", default-features = false }
+crossbeam = "0.8.4"
+dashmap = "6.0"
+nbformat = "1.2.0"
+block2 = "0.6"
+gpui_windows = { path = "vendor/gpui/crates/gpui_windows", default-features = false }
+toml_edit = { version = "0.22", default-features = false, features = [
+    "display",
+    "parse",
+    "serde",
+] }
+emojis = "0.6.1"
+gpui_wgpu = { path = "vendor/gpui/crates/gpui_wgpu" }
+pet-fs = { git = "https://github.com/microsoft/python-environment-tools.git", rev = "bb8e04607b96a3865d6aa4bb2a5a5a82ce05b5f0" }
+pet = { git = "https://github.com/microsoft/python-environment-tools.git", rev = "bb8e04607b96a3865d6aa4bb2a5a5a82ce05b5f0" }
+serde_urlencoded = "0.7"
+pet-reporter = { git = "https://github.com/microsoft/python-environment-tools.git", rev = "bb8e04607b96a3865d6aa4bb2a5a5a82ce05b5f0" }
+tempfile = "3.20.0"
+ztracing = { path = "vendor/gpui/crates/ztracing" }
+mime = "0.3.17"
+tree-sitter-jsdoc = "0.23"
+proc-macro2 = "1.0.93"
+jupyter-websocket-client = "1.1.0"
+smallvec = { version = "1.6", features = ["union", "const_new"] }
+reqwest = { git = "https://github.com/zed-industries/reqwest.git", rev = "c15662463bda39148ba154100dd44d3fba5873a4", default-features = false, features = [
+    "charset",
+    "http2",
+    "macos-system-configuration",
+    "multipart",
+    "rustls-tls-native-roots",
+    "socks",
+    "stream",
+], package = "zed-reqwest", version = "0.12.15-zed" }
+proptest = { git = "https://github.com/proptest-rs/proptest", rev = "3dca198a8fef1b32e3a66f1e1897c955b4dc5b5b", features = ["attr-macro"] }
+pulldown-cmark = { version = "0.13.0", default-features = false }
+nanoid = "0.4"
+tree-sitter-gitcommit = { git = "https://github.com/zed-industries/tree-sitter-git-commit", rev = "88309716a69dd13ab83443721ba6e0b491d37ee9" }
+rodio = { git = "https://github.com/RustAudio/rodio", rev = "e50e726ddd0292f6ef9de0dda6b90af4ed1fb66a", features = ["wav", "playback", "wav_output", "recording"] }
+rustls = { version = "0.23.26" }
+parse_int = "0.9"
+base64 = "0.22"
+bytes = "1.0"
+inventory = "0.3.19"
+pet-conda = { git = "https://github.com/microsoft/python-environment-tools.git", rev = "bb8e04607b96a3865d6aa4bb2a5a5a82ce05b5f0" }
+pollster = "0.4.0"
+profiling = "1"
+# replace this with main when #635 is merged
+cocoa-foundation = "=0.2.0"
+toml = "0.8"
+async-trait = "0.1"
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "2.0.12"
+aws-smithy-types = { version = "1.3.4", features = ["http-body-1-x"] }
+flume = "0.12"
+tree-sitter-json = "0.24"
+portable-pty = "0.9.0"
+streaming-iterator = "0.1"
+tree-sitter-ruby = "0.23"
+minidumper = "0.9"
+objc2-foundation = { version = "=0.3.2", default-features = false, features = [
+    "NSArray",
+    "NSAttributedString",
+    "NSBundle",
+    "NSCoder",
+    "NSData",
+    "NSDate",
+    "NSDictionary",
+    "NSEnumerator",
+    "NSError",
+    "NSGeometry",
+    "NSNotification",
+    "NSNull",
+    "NSObjCRuntime",
+    "NSObject",
+    "NSProcessInfo",
+    "NSRange",
+    "NSRunLoop",
+    "NSSet",
+    "NSString",
+    "NSURL",
+    "NSUndoManager",
+    "NSValue",
+    "objc2-core-foundation",
+    "std",
+] }
+stacksafe = "1.0"
+foreign-types = "0.5"
+tree-sitter-typescript = { git = "https://github.com/zed-industries/tree-sitter-typescript", rev = "e2c53597d6a5d9cf7bbe8dccde576fe1e46c5899" } # https://github.com/tree-sitter/tree-sitter-typescript/pull/347
+pciid-parser = "0.8.0"
+jsonschema = "0.37.0"
+gpui_apple = { path = "vendor/gpui/crates/gpui_apple" }
+proptest-derive = "0.8.0"
+httparse = "1.10"
+serde_yaml_ng = "0.10"
+aws-config = { version = "1.8.10", features = ["behavior-version-latest"] }
+proxyvars = "0.2"
+async_zip = { version = "0.0.18", features = ["deflate", "deflate64"] }
+rand = "0.9"
+fancy-regex = "0.18.0"
+tree-sitter-css = "0.23"
+vte = { version = "0.15.0", features = ["ansi"] }
+async-tungstenite = "0.31.0"
+unicode-width = "0.2"
+num-format = "0.4.4"
+http = "1.1"
+accesskit_unix = "0.21.0"
+tree-sitter-go-mod = { git = "https://github.com/camdencheek/tree-sitter-go-mod", rev = "2e886870578eeba1927a2dc4bd2e2b3f598c5f9a", package = "tree-sitter-gomod" }
+serde_json_lenient = { version = "0.2", features = [
+    "preserve_order",
+    "raw_value",
+] }
+util_macros = { path = "vendor/gpui/crates/util_macros" }
+swash = "0.2.6"
+bitflags = "2.6.0"
+cargo_toml = "0.21"
+aws-sigv4 = { version = "1.4.0", features = ["http1"] }
+criterion = { version = "0.5", features = ["html_reports"] }
+parking_lot = "0.12.1"
+documented = "0.9.1"
+async-tar = "0.6"
+objc2 = "0.6"
+wasmparser = "0.252"
+tree-sitter-diff = "0.1.0"
+libc = "0.2"
+accesskit_windows = "0.33.1"
+aho-corasick = "1.1"
+rsa = "0.9.6"
+runtimelib = { version = "1.4.0", default-features = false, features = [
+    "async-dispatcher-runtime", "aws-lc-rs"
+] }
+async-recursion = "1.0.0"
+# `unstable` is required to compile async-tar's Windows symlink support.
+quote = "1.0.9"
+tree-sitter-bash = "0.25.1"
+time = { version = "0.3", features = [
+    "macros",
+    "parsing",
+    "serde",
+    "serde-well-known",
+    "formatting",
+    "local-offset",
+] }
+urlencoding = "2.1.2"
+regex = "1.5"
+# WARNING: If you change this, you must also publish a new version of zed-reqwest to crates.io
+path = { path = "vendor/gpui/crates/path" }
+windows-core = "0.61"
+gh-workflow = { git = "https://github.com/zed-industries/gh-workflow", rev = "37f3c0575d379c218a9c455ee67585184e40d43f" }
+
+url = "2.2"
+refineable = { path = "vendor/gpui/crates/refineable" }
+futures-util = "0.3.32"
+sysinfo = "0.37.0"
+indoc = "2"
+wasm-encoder = "0.252"
+scap = { git = "https://github.com/zed-industries/scap", rev = "4afea48c3b002197176fb19cd0f9b180dd36eaac", default-features = false, package = "zed-scap", version = "0.0.8-zed" }
+unicode-bidi = { version = "0.3.18", default-features = false, features = [
+    "hardcoded-data",
+] }
+http-body = "1.0"
+lru = "0.16"
+rustc-hash = "2.1.0"
+open = "5.0.0"
+cfg-if = "1.0.3"
+rustix = { version = "1.1", features = ["fs"] }
 
 [profile.release]
 lto = "thin"
@@ -51,3 +434,64 @@ opt-level = 2
 [profile.dev.package."*"]
 debug = false
 opt-level = 2
+[workspace.dependencies.windows]
+version = "0.61"
+features = [
+    "Data_Xml_Dom",
+    "Foundation_Numerics",
+    "Globalization_DateTimeFormatting",
+    "Storage_Search",
+    "Storage_Streams",
+    "System_Threading",
+    "UI_Notifications",
+    "UI_ViewManagement",
+    "Wdk_System_SystemServices",
+    "Win32_Foundation",
+    "Win32_Globalization",
+    "Win32_Graphics_Direct3D",
+    "Win32_Graphics_Direct3D11",
+    "Win32_Graphics_Direct3D_Fxc",
+    "Win32_Graphics_DirectComposition",
+    "Win32_Graphics_DirectWrite",
+    "Win32_Graphics_DirectManipulation",
+    "Win32_Graphics_Dwm",
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
+    "Win32_Graphics_Gdi",
+    "Win32_Graphics_Imaging",
+    "Win32_Graphics_Hlsl",
+    "Win32_Networking_WinSock",
+    "Win32_Security",
+    "Win32_Security_Credentials",
+    "Win32_Security_Cryptography",
+    "Win32_Storage_FileSystem",
+    "Win32_Storage_Packaging_Appx",
+    "Win32_System_Com",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_System_Console",
+    "Win32_System_Diagnostics_Debug",
+    "Win32_System_DataExchange",
+    "Win32_System_IO",
+    "Win32_System_JobObjects",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Memory",
+    "Win32_System_Ole",
+    "Win32_System_Performance",
+    "Win32_System_Pipes",
+    "Win32_System_RestartManager",
+    "Win32_System_SystemInformation",
+    "Win32_System_SystemServices",
+    "Win32_System_Threading",
+    "Win32_System_Variant",
+    "Win32_System_WinRT",
+    "Win32_UI_Controls",
+    "Win32_UI_HiDpi",
+    "Win32_UI_Input_Ime",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Input_Pointer",
+    "Win32_UI_Shell",
+    "Win32_UI_Shell_Common",
+    "Win32_UI_Shell_PropertiesSystem",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Media",
+]

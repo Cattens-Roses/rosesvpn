@@ -155,7 +155,7 @@ $where
 Edit the issue or reply with the missing pieces and the label comes off. Left as it is, this closes itself in a couple of weeks.
 
 > [!NOTE]
-> Sonora Buddy is an AI. If it read the issue wrong, say so and a maintainer will look.
+> RosesVPN bot is an AI. If it read the issue wrong, say so and a maintainer will look.
 "
   add+=(--add-label 'needs-info')
 elif [ -z "$missing" ] && has_label 'needs-info'; then

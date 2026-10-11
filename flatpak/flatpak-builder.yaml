@@ -44,7 +44,7 @@ modules:
     sources:
       # Use source from GitHub:
       #- type: git
-      #  url: https://github.com/sonorahq/sonora.git
+      #  url: https://github.com/Cattens-Roses/rosesvpn.git
       #  tag: v0.28.0
 
       # Use source from this machine:

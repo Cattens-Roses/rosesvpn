@@ -18,10 +18,10 @@ jobs:
     steps:
       - uses: actions/create-github-app-token@v3
         id: buddy
-        if: vars.SONORA_BUDDY_APP_ID != ''
+        if: vars.ROSESVPN_BOT_APP_ID != ''
         with:
-          app-id: ${{ vars.SONORA_BUDDY_APP_ID }}
-          private-key: ${{ secrets.SONORA_BUDDY_KEY }}
+          app-id: ${{ vars.ROSESVPN_BOT_APP_ID }}
+          private-key: ${{ secrets.ROSESVPN_BOT_KEY }}
 
       - uses: actions/stale@v11
         with:
@@ -47,10 +47,10 @@ jobs:
     steps:
       - uses: actions/create-github-app-token@v3
         id: buddy
-        if: vars.SONORA_BUDDY_APP_ID != ''
+        if: vars.ROSESVPN_BOT_APP_ID != ''
         with:
-          app-id: ${{ vars.SONORA_BUDDY_APP_ID }}
-          private-key: ${{ secrets.SONORA_BUDDY_KEY }}
+          app-id: ${{ vars.ROSESVPN_BOT_APP_ID }}
+          private-key: ${{ secrets.ROSESVPN_BOT_KEY }}
 
       - uses: actions/stale@v11
         with:

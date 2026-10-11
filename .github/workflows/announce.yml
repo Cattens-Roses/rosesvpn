@@ -42,9 +42,9 @@ jobs:
             --arg repo "$REPO" \
             --arg notes "$notes" \
             '{
-              username: "Sonora Releases",
+              username: "RosesVPN Releases",
               embeds: [{
-                title: ("Sonora " + $tag),
+                title: ("RosesVPN " + $tag),
                 url: ("https://github.com/" + $repo + "/releases/tag/" + $tag),
                 description: (
                   if ($notes | length) > 4000 then

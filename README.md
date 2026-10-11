@@ -1,6 +1,6 @@
 # RosesVPN
 
-RosesVPN is an open-source desktop VPN client built with Rust and the GPUI interface from [baseapp](https://github.com/Cattens-Roses/baseapp). The desktop app manages profiles and connection state; a separate Rust engine owns native tunnel setup and firewall policy.
+RosesVPN is an open-source desktop VPN client built with Rust and GPUI. The desktop app manages profiles and connection state; a separate Rust engine owns native tunnel setup and firewall policy.
 
 > **Status:** WireGuard is the first supported protocol. This is an early-stage client, not a security-audited replacement for an established VPN provider's app. A VPN profile and a reachable VPN server are required to connect.
 
@@ -52,6 +52,16 @@ cargo run --locked -p rosesvpn
 ```
 
 The app stores imported profiles in `%APPDATA%/RosesVPN/servers/` on Windows and `$XDG_CONFIG_HOME/RosesVPN/servers/` on Linux (or `$HOME/.config/RosesVPN/servers/` when `XDG_CONFIG_HOME` is unset). Import profiles through the app's profile controls. Connecting and toggling firewall protections asks the OS to authorize the privileged tunnel worker (`UAC` on Windows, `pkexec` on Linux).
+
+## Install releases and update
+
+Every successful push to `main` publishes a rolling [`continuous` release](https://github.com/Cattens-Roses/rosesvpn/releases/tag/continuous) and a versioned release with these assets:
+
+- **Windows:** `RosesVPN-Setup.exe` installs per-user under `%LOCALAPPDATA%/Programs/RosesVPN`; the portable ZIP contains the app and WireGuardNT runtime.
+- **Linux x64:** the `.deb` registers RosesVPN with the desktop and installs its runtime dependencies; the portable tarball can run from a writable folder.
+- `update-manifest.json` and `CHECKSUMS.txt` identify the build and its SHA-256 hashes.
+
+RosesVPN checks the continuous channel on launch and exposes **Settings → Software updates** for a manual check and install. It downloads the platform installer and verifies its size and SHA-256 before launching it. Windows updates open the per-user setup program. Debian installs ask the system authentication agent before applying the `.deb`; portable Linux installs should download the new tarball from Releases manually. Auto-update checks use the system `curl` HTTPS client.
 
 ## Development checks
 
