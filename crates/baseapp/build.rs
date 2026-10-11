@@ -1,7 +1,9 @@
 use std::{env, fs, path::PathBuf};
 
 fn main() {
-    let manifest = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").expect("Cargo sets the manifest directory"));
+    let manifest = PathBuf::from(
+        env::var_os("CARGO_MANIFEST_DIR").expect("Cargo sets the manifest directory"),
+    );
     let workspace = manifest
         .ancestors()
         .nth(2)
@@ -16,7 +18,8 @@ fn main() {
         .expect("could not write the Windows icon resource");
     println!("cargo:rerun-if-changed=build.rs");
 
-    if let Err(error) = embed_resource::compile(resource, embed_resource::NONE).manifest_optional() {
+    if let Err(error) = embed_resource::compile(resource, embed_resource::NONE).manifest_optional()
+    {
         panic!("could not embed the Windows application icon: {error}");
     }
 }

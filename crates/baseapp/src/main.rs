@@ -1,11 +1,18 @@
 use gpui::prelude::*;
-use gpui::{App, Bounds, Context, Entity, FocusHandle, Hsla, Render, Rgba, ScrollHandle, SharedString, TitlebarOptions, Window, WindowBounds, WindowOptions, canvas, div, point, px};
+use gpui::{
+    App, Bounds, Context, Entity, FocusHandle, Hsla, Render, Rgba, ScrollHandle, SharedString,
+    TitlebarOptions, Window, WindowBounds, WindowOptions, canvas, div, point, px,
+};
 use std::cell::Cell;
 use std::f32::consts::TAU;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::Instant;
-use ui::{ActiveTheme as _, Button, Look, MenuItem, Motion, Motioned, Pace, Picker, Popovers, Rounding, Scrubber, ScrubberState, Scrollbar, Scroller, Separator, Stillness, Switch, TabBar, Theme, ThemeKind, ThemeOverrides, WindowControls};
+use ui::{
+    ActiveTheme as _, Button, Look, MenuItem, Motion, Motioned, Pace, Picker, Popovers, Rounding,
+    Scrollbar, Scroller, Scrubber, ScrubberState, Separator, Stillness, Switch, TabBar, Theme,
+    ThemeKind, ThemeOverrides, WindowControls,
+};
 
 const FIRST_SIZE: gpui::Size<gpui::Pixels> = gpui::size(px(920.), px(640.));
 const AMBIENT_DOWNSCALE: f32 = 3.;
@@ -36,7 +43,13 @@ enum AmbientStyle {
 }
 
 impl AmbientStyle {
-    const ALL: [Self; 5] = [Self::Aurora, Self::Sunset, Self::Ocean, Self::Forest, Self::Rose];
+    const ALL: [Self; 5] = [
+        Self::Aurora,
+        Self::Sunset,
+        Self::Ocean,
+        Self::Forest,
+        Self::Rose,
+    ];
 
     fn id(self) -> &'static str {
         match self {
@@ -81,10 +94,7 @@ impl AmbientStyle {
 
     fn blob_colors(self) -> [Hsla; 5] {
         let (primary, secondary) = self.colors();
-        let base = Hsla {
-            l: 0.39,
-            ..primary
-        };
+        let base = Hsla { l: 0.39, ..primary };
         let second = Hsla {
             l: 0.38,
             ..secondary
@@ -183,24 +193,44 @@ impl Default for Preferences {
 impl Preferences {
     fn load() -> Self {
         let mut prefs = Self::default();
-        let Some(path) = preferences_path() else { return prefs };
-        let Ok(contents) = std::fs::read_to_string(path) else { return prefs };
+        let Some(path) = preferences_path() else {
+            return prefs;
+        };
+        let Ok(contents) = std::fs::read_to_string(path) else {
+            return prefs;
+        };
         for line in contents.lines() {
-            let Some((key, value)) = line.split_once('=') else { continue };
+            let Some((key, value)) = line.split_once('=') else {
+                continue;
+            };
             match key {
                 "theme" => prefs.theme = ThemeKind::from_id(value),
                 "rounding" => prefs.rounding = Rounding::from_id(value),
                 "blur" => prefs.blur = value.parse().unwrap_or(prefs.blur),
                 "blur_window" => prefs.blur_window = value.parse().unwrap_or(prefs.blur_window),
-                "font_size" => prefs.font_size = value.parse::<f32>().unwrap_or(prefs.font_size).clamp(ui::MIN_FONT, ui::MAX_FONT),
-                "icon_pack" if icons::pack(value).is_some() => prefs.icon_pack = icons::pack(value).unwrap().id,
+                "font_size" => {
+                    prefs.font_size = value
+                        .parse::<f32>()
+                        .unwrap_or(prefs.font_size)
+                        .clamp(ui::MIN_FONT, ui::MAX_FONT)
+                }
+                "icon_pack" if icons::pack(value).is_some() => {
+                    prefs.icon_pack = icons::pack(value).unwrap().id
+                }
                 "transparent" => prefs.transparent = value.parse().unwrap_or(prefs.transparent),
-                "transparency" => prefs.transparency = value.parse::<f32>().unwrap_or(prefs.transparency).clamp(0., ui::MAX_TRANSPARENCY),
+                "transparency" => {
+                    prefs.transparency = value
+                        .parse::<f32>()
+                        .unwrap_or(prefs.transparency)
+                        .clamp(0., ui::MAX_TRANSPARENCY)
+                }
                 "stillness" => prefs.stillness = Stillness::from_id(value),
                 "pace" => prefs.pace = Pace::from_id(value),
                 "ambient" => prefs.ambient = value.parse().unwrap_or(prefs.ambient),
                 "ambient_style" => prefs.ambient_style = AmbientStyle::from_id(value),
-                "ambient_motion" => prefs.ambient_motion = value.parse().unwrap_or(prefs.ambient_motion),
+                "ambient_motion" => {
+                    prefs.ambient_motion = value.parse().unwrap_or(prefs.ambient_motion)
+                }
                 _ => {}
             }
         }
@@ -209,7 +239,9 @@ impl Preferences {
     }
 
     fn save(self) {
-        let Some(path) = preferences_path() else { return };
+        let Some(path) = preferences_path() else {
+            return;
+        };
         let Some(parent) = path.parent() else { return };
         if let Err(error) = std::fs::create_dir_all(parent).and_then(|()| {
             std::fs::write(path, format!(
@@ -228,7 +260,9 @@ fn preferences_path() -> Option<PathBuf> {
     #[cfg(target_os = "windows")]
     let base = std::env::var_os("APPDATA").map(PathBuf::from)?;
     #[cfg(target_os = "macos")]
-    let base = std::env::var_os("HOME").map(PathBuf::from)?.join("Library/Application Support");
+    let base = std::env::var_os("HOME")
+        .map(PathBuf::from)?
+        .join("Library/Application Support");
     #[cfg(all(unix, not(target_os = "macos")))]
     let base = std::env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)
@@ -305,7 +339,9 @@ impl BaseApp {
             blur: self.blur,
             blur_window: self.blur_window,
             font_size: self.font_size,
-            icon_pack: icons::packs().nth(self.icon_pack).map_or(icons::BASE, |pack| pack.id),
+            icon_pack: icons::packs()
+                .nth(self.icon_pack)
+                .map_or(icons::BASE, |pack| pack.id),
             transparent: self.transparent,
             transparency: self.transparency,
             stillness: self.stillness,
@@ -341,7 +377,12 @@ impl BaseApp {
                     .flex_col()
                     .gap_1()
                     .child(div().text_color(theme.foreground).child(title.into()))
-                    .child(div().text_color(theme.muted_foreground).text_size(theme.text(ui::Text::Small)).child(detail.into())),
+                    .child(
+                        div()
+                            .text_color(theme.muted_foreground)
+                            .text_size(theme.text(ui::Text::Small))
+                            .child(detail.into()),
+                    ),
             )
             .child(div().flex_none().child(action))
     }
@@ -358,30 +399,40 @@ impl Render for BaseApp {
             .w(px(208.))
             .h_full()
             .p_3()
-            .when(!theme.transparent && !self.ambient, |sidebar| sidebar.bg(theme.sidebar))
+            .when(!theme.transparent && !self.ambient, |sidebar| {
+                sidebar.bg(theme.sidebar)
+            })
             .border_r_1()
             .border_color(theme.sidebar_border)
-            .children([
-                (Page::Home, "nav-home", "icons/house.svg"),
-                (Page::Appearance, "nav-settings", "icons/settings.svg"),
-            ].into_iter().map(|(page, label, icon)| {
-                let selected = self.page == page;
-                let tint = if selected { theme.foreground } else { theme.muted_foreground };
-                Button::new(format!("nav-{label}"))
-                    .ghost()
-                    .label(i18n::lookup(label, None))
-                    .icon(icons::path(icon))
-                    .tint(tint)
-                    .gap_2p5()
-                    .justify_start()
-                    .hover(move |style| style.bg(theme.sidebar_accent))
-                    .active(move |style| style.bg(theme.sidebar_accent))
-                    .when(selected, |button| button.bg(theme.sidebar_accent))
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        this.page = page;
-                        cx.notify();
-                    }))
-            }));
+            .children(
+                [
+                    (Page::Home, "nav-home", "icons/house.svg"),
+                    (Page::Appearance, "nav-settings", "icons/settings.svg"),
+                ]
+                .into_iter()
+                .map(|(page, label, icon)| {
+                    let selected = self.page == page;
+                    let tint = if selected {
+                        theme.foreground
+                    } else {
+                        theme.muted_foreground
+                    };
+                    Button::new(format!("nav-{label}"))
+                        .ghost()
+                        .label(i18n::lookup(label, None))
+                        .icon(icons::path(icon))
+                        .tint(tint)
+                        .gap_2p5()
+                        .justify_start()
+                        .hover(move |style| style.bg(theme.sidebar_accent))
+                        .active(move |style| style.bg(theme.sidebar_accent))
+                        .when(selected, |button| button.bg(theme.sidebar_accent))
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            this.page = page;
+                            cx.notify();
+                        }))
+                }),
+            );
 
         let content = match self.page {
             Page::Home => div()
@@ -451,7 +502,8 @@ impl Render for BaseApp {
                         this.blur_window = !this.blur_window;
                         let blur_window = this.blur_window;
                         this.apply(cx);
-                        window.set_background_appearance(ui::backdrop(blur_window, this.transparent));
+                        window
+                            .set_background_appearance(ui::backdrop(blur_window, this.transparent));
                         this.save();
                     }))
                     .into_any_element();
@@ -489,28 +541,28 @@ impl Render for BaseApp {
                         cx.notify();
                     }))
                     .into_any_element();
-                let ambient_style = Picker::new("ambient-style", &self.popovers, self.ambient_style.label())
-                    .width(Picker::REGULAR)
-                    .items(AmbientStyle::ALL.into_iter().map(|style| {
-                        MenuItem::new(style.id(), style.label())
-                            .selected(style == self.ambient_style)
-                            .on_click(cx.listener(move |this, _, _, cx| {
-                                let now = Instant::now();
-                                let from = this.ambient_colors(now);
-                                this.ambient_style = style;
-                                this.ambient_transition = ui::motion::animates(cx).then_some(
-                                    AmbientTransition { from, started: now },
-                                );
-                                if ui::motion::animates(cx) {
-                                    Theme::fade(this.look(), &ThemeOverrides::default(), cx);
-                                } else {
-                                    this.apply(cx);
-                                }
-                                this.save();
-                                cx.notify();
-                            }))
-                    }))
-                    .into_any_element();
+                let ambient_style =
+                    Picker::new("ambient-style", &self.popovers, self.ambient_style.label())
+                        .width(Picker::REGULAR)
+                        .items(AmbientStyle::ALL.into_iter().map(|style| {
+                            MenuItem::new(style.id(), style.label())
+                                .selected(style == self.ambient_style)
+                                .on_click(cx.listener(move |this, _, _, cx| {
+                                    let now = Instant::now();
+                                    let from = this.ambient_colors(now);
+                                    this.ambient_style = style;
+                                    this.ambient_transition = ui::motion::animates(cx)
+                                        .then_some(AmbientTransition { from, started: now });
+                                    if ui::motion::animates(cx) {
+                                        Theme::fade(this.look(), &ThemeOverrides::default(), cx);
+                                    } else {
+                                        this.apply(cx);
+                                    }
+                                    this.save();
+                                    cx.notify();
+                                }))
+                        }))
+                        .into_any_element();
                 let ambient_motion = Switch::new("ambient-motion", self.ambient_motion)
                     .on_click(cx.listener(|this, _, _, cx| {
                         this.ambient_motion = !this.ambient_motion;
@@ -522,39 +574,64 @@ impl Render for BaseApp {
                     .flex()
                     .items_center()
                     .gap_2()
-                    .child(Button::new("font-smaller").small().outline().label("−").on_click(cx.listener(|this, _, window, cx| {
-                        this.font_size = (this.font_size - 1.).max(ui::MIN_FONT);
-                        this.apply(cx);
-                        window.set_rem_size(cx.theme().font_size);
-                        this.save();
-                    })))
-                    .child(div().text_color(theme.foreground).child(format!("{} px", self.font_size.round())))
-                    .child(Button::new("font-larger").small().outline().label("+").on_click(cx.listener(|this, _, window, cx| {
-                        this.font_size = (this.font_size + 1.).min(ui::MAX_FONT);
-                        this.apply(cx);
-                        window.set_rem_size(cx.theme().font_size);
-                        this.save();
-                    })))
+                    .child(
+                        Button::new("font-smaller")
+                            .small()
+                            .outline()
+                            .label("−")
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                this.font_size = (this.font_size - 1.).max(ui::MIN_FONT);
+                                this.apply(cx);
+                                window.set_rem_size(cx.theme().font_size);
+                                this.save();
+                            })),
+                    )
+                    .child(
+                        div()
+                            .text_color(theme.foreground)
+                            .child(format!("{} px", self.font_size.round())),
+                    )
+                    .child(
+                        Button::new("font-larger")
+                            .small()
+                            .outline()
+                            .label("+")
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                this.font_size = (this.font_size + 1.).min(ui::MAX_FONT);
+                                this.apply(cx);
+                                window.set_rem_size(cx.theme().font_size);
+                                this.save();
+                            })),
+                    )
                     .into_any_element();
-                let transparency = if self.transparent { self.transparency } else { 0. };
+                let transparency = if self.transparent {
+                    self.transparency
+                } else {
+                    0.
+                };
                 let value = 1. - transparency / ui::MAX_TRANSPARENCY;
                 let opacity = div()
                     .flex()
                     .items_center()
                     .gap_2()
-                    .child(div().w(theme.metrics.cover).child(
-                        Scrubber::new(&self.opacity, value)
-                            .colors(theme.progress_bar, theme.muted, theme.foreground)
-                            .on_move(cx.listener(|this, fraction: &f32, window, cx| {
-                                this.transparency = (1. - *fraction) * ui::MAX_TRANSPARENCY;
-                                this.transparent = this.transparency > 0.;
-                                let transparent = this.transparent;
-                                let blur_window = this.blur_window;
-                                this.apply(cx);
-                                window.set_background_appearance(ui::backdrop(blur_window, transparent));
-                            }))
-                            .on_release(cx.listener(|this, _, _, _| this.save())),
-                    ))
+                    .child(
+                        div().w(theme.metrics.cover).child(
+                            Scrubber::new(&self.opacity, value)
+                                .colors(theme.progress_bar, theme.muted, theme.foreground)
+                                .on_move(cx.listener(|this, fraction: &f32, window, cx| {
+                                    this.transparency = (1. - *fraction) * ui::MAX_TRANSPARENCY;
+                                    this.transparent = this.transparency > 0.;
+                                    let transparent = this.transparent;
+                                    let blur_window = this.blur_window;
+                                    this.apply(cx);
+                                    window.set_background_appearance(ui::backdrop(
+                                        blur_window,
+                                        transparent,
+                                    ));
+                                }))
+                                .on_release(cx.listener(|this, _, _, _| this.save())),
+                        ),
+                    )
                     .child(
                         div()
                             .flex_none()
@@ -581,14 +658,16 @@ impl Render for BaseApp {
                             .py_3()
                             .border_b_1()
                             .border_color(theme.title_bar_border)
-                            .child(TabBar::new("settings-categories").blurred().items([
-                                Button::new("appearance-category")
-                                    .label(i18n::lookup("settings-tab-appearance", None))
-                                    .icon(icons::path("icons/palette.svg"))
-                                    .small()
-                                    .ghost()
-                                    .selected(true),
-                            ])),
+                            .child(
+                                TabBar::new("settings-categories")
+                                    .blurred()
+                                    .items([Button::new("appearance-category")
+                                        .label(i18n::lookup("settings-tab-appearance", None))
+                                        .icon(icons::path("icons/palette.svg"))
+                                        .small()
+                                        .ghost()
+                                        .selected(true)]),
+                            ),
                     )
                     .child(
                         Scroller::new("appearance-settings", &self.scrollbar)
@@ -604,31 +683,113 @@ impl Render for BaseApp {
                                     .max_w(px(640.))
                                     .px_6()
                                     .py_5()
-                                    .child(div().pb_2().text_color(theme.muted_foreground).text_size(theme.text(ui::Text::Small)).child("Ambient"))
-                                    .child(self.row("Ambient", "Show a soft color field behind the app", ambient, cx))
+                                    .child(
+                                        div()
+                                            .pb_2()
+                                            .text_color(theme.muted_foreground)
+                                            .text_size(theme.text(ui::Text::Small))
+                                            .child("Ambient"),
+                                    )
+                                    .child(self.row(
+                                        "Ambient",
+                                        "Show a soft color field behind the app",
+                                        ambient,
+                                        cx,
+                                    ))
                                     .child(Separator::horizontal().w_full())
-                                    .child(self.row("Ambient style", "Choose the colors for the ambient field", ambient_style, cx))
+                                    .child(self.row(
+                                        "Ambient style",
+                                        "Choose the colors for the ambient field",
+                                        ambient_style,
+                                        cx,
+                                    ))
                                     .child(Separator::horizontal().w_full())
-                                    .child(self.row("Ambient motion", "Let the color field drift slowly", ambient_motion, cx))
+                                    .child(self.row(
+                                        "Ambient motion",
+                                        "Let the color field drift slowly",
+                                        ambient_motion,
+                                        cx,
+                                    ))
                                     .child(Separator::horizontal().w_full())
-                                    .child(div().pb_2().text_color(theme.muted_foreground).text_size(theme.text(ui::Text::Small)).child(i18n::lookup("settings-tab-general", None)))
-                                    .child(self.row(i18n::lookup("settings-theme", None), i18n::lookup("settings-theme-detail", None), themes, cx))
+                                    .child(
+                                        div()
+                                            .pb_2()
+                                            .text_color(theme.muted_foreground)
+                                            .text_size(theme.text(ui::Text::Small))
+                                            .child(i18n::lookup("settings-tab-general", None)),
+                                    )
+                                    .child(self.row(
+                                        i18n::lookup("settings-theme", None),
+                                        i18n::lookup("settings-theme-detail", None),
+                                        themes,
+                                        cx,
+                                    ))
                                     .child(Separator::horizontal().w_full())
-                                    .child(self.row(i18n::lookup("settings-icons", None), i18n::lookup("settings-icons-detail", None), icons_picker, cx))
+                                    .child(self.row(
+                                        i18n::lookup("settings-icons", None),
+                                        i18n::lookup("settings-icons-detail", None),
+                                        icons_picker,
+                                        cx,
+                                    ))
                                     .child(Separator::horizontal().w_full())
-                                    .child(self.row(i18n::lookup("settings-opacity", None), i18n::lookup("settings-opacity-detail", None), opacity, cx))
+                                    .child(self.row(
+                                        i18n::lookup("settings-opacity", None),
+                                        i18n::lookup("settings-opacity-detail", None),
+                                        opacity,
+                                        cx,
+                                    ))
                                     .child(Separator::horizontal().w_full())
-                                    .child(self.row(i18n::lookup("settings-blur", None), i18n::lookup("settings-blur-detail", None), blur, cx))
+                                    .child(self.row(
+                                        i18n::lookup("settings-blur", None),
+                                        i18n::lookup("settings-blur-detail", None),
+                                        blur,
+                                        cx,
+                                    ))
                                     .child(Separator::horizontal().w_full())
-                                    .when(ui::WINDOW_BLUR, |this| this.child(self.row(i18n::lookup("settings-blur-window", None), i18n::lookup("settings-blur-window-detail", None), blur_window, cx)).child(Separator::horizontal().w_full()))
-                                    .child(self.row(i18n::lookup("settings-corners", None), i18n::lookup("settings-corners-detail", None), corners, cx))
+                                    .when(ui::WINDOW_BLUR, |this| {
+                                        this.child(self.row(
+                                            i18n::lookup("settings-blur-window", None),
+                                            i18n::lookup("settings-blur-window-detail", None),
+                                            blur_window,
+                                            cx,
+                                        ))
+                                        .child(Separator::horizontal().w_full())
+                                    })
+                                    .child(self.row(
+                                        i18n::lookup("settings-corners", None),
+                                        i18n::lookup("settings-corners-detail", None),
+                                        corners,
+                                        cx,
+                                    ))
                                     .child(Separator::horizontal().w_full())
-                                    .child(self.row(i18n::lookup("settings-font", None), i18n::lookup("settings-font-detail", None), font, cx))
+                                    .child(self.row(
+                                        i18n::lookup("settings-font", None),
+                                        i18n::lookup("settings-font-detail", None),
+                                        font,
+                                        cx,
+                                    ))
                                     .child(Separator::horizontal().w_full())
-                                    .child(div().pt_4().pb_2().text_color(theme.muted_foreground).text_size(theme.text(ui::Text::Small)).child(i18n::lookup("settings-group-motion", None)))
-                                    .child(self.row(i18n::lookup("settings-motion", None), i18n::lookup("settings-motion-detail", None), stillness, cx))
+                                    .child(
+                                        div()
+                                            .pt_4()
+                                            .pb_2()
+                                            .text_color(theme.muted_foreground)
+                                            .text_size(theme.text(ui::Text::Small))
+                                            .child(i18n::lookup("settings-group-motion", None)),
+                                    )
+                                    .child(self.row(
+                                        i18n::lookup("settings-motion", None),
+                                        i18n::lookup("settings-motion-detail", None),
+                                        stillness,
+                                        cx,
+                                    ))
                                     .child(Separator::horizontal().w_full())
-                                    .child(self.row(i18n::lookup("settings-pace", None), i18n::lookup("settings-pace-detail", None), pace, cx)),
+                                    .child(self.row(
+                                        i18n::lookup("settings-pace", None),
+                                        i18n::lookup("settings-pace-detail", None),
+                                        pace,
+                                        cx,
+                                    )),
                             ),
                     )
                     .into_any_element()
@@ -649,20 +810,28 @@ impl Render for BaseApp {
                 Button::new("sidebar-toggle")
                     .ghost()
                     .small()
-                    .icon(icons::path(if self.sidebar_open { "icons/panel-left-close.svg" } else { "icons/panel-left-open.svg" }))
+                    .icon(icons::path(if self.sidebar_open {
+                        "icons/panel-left-close.svg"
+                    } else {
+                        "icons/panel-left-open.svg"
+                    }))
                     .on_click(cx.listener(|this, _, _, cx| {
                         this.sidebar_open = !this.sidebar_open;
                         cx.notify();
                     })),
             )
-            .child(div().flex_1().h_full().window_control_area(gpui::WindowControlArea::Drag))
+            .child(
+                div()
+                    .flex_1()
+                    .h_full()
+                    .window_control_area(gpui::WindowControlArea::Drag),
+            )
             .child(WindowControls::new(false));
 
         let ambient_animates = self.ambient && self.ambient_motion && ui::motion::animates(cx);
         let now = Instant::now();
         let ambient_transition_active = self.ambient_transition.is_some_and(|transition| {
-            ui::motion::animates(cx)
-                && now.duration_since(transition.started) < AMBIENT_STYLE_FADE
+            ui::motion::animates(cx) && now.duration_since(transition.started) < AMBIENT_STYLE_FADE
         });
         if self.ambient_transition.is_some() && !ambient_transition_active {
             self.ambient_transition = None;
@@ -680,7 +849,11 @@ impl Render for BaseApp {
         let ambient_height = bounds.size.height.as_f32().max(1.) / AMBIENT_DOWNSCALE;
         let ambient_colors = self.ambient_colors(now);
         let ambient_bounds = self.ambient_bounds.clone();
-        let ambient_opacity = if theme.transparent { theme.background.a } else { 1. };
+        let ambient_opacity = if theme.transparent {
+            theme.background.a
+        } else {
+            1.
+        };
         div()
             .relative()
             .flex()
@@ -718,7 +891,8 @@ impl Render for BaseApp {
                                 .blur(px(AMBIENT_BLUR / window.scale_factor()))
                                 .children(AMBIENT_SPECS.into_iter().enumerate().map(
                                     |(index, spec)| {
-                                        let (base_x, base_y, size, period, phase, amp_x, amp_y) = spec;
+                                        let (base_x, base_y, size, period, phase, amp_x, amp_y) =
+                                            spec;
                                         let spin = TAU * ambient_elapsed / period;
                                         let x = base_x + amp_x * (spin + phase).sin();
                                         let y = base_y + amp_y * (spin * 0.83 + phase * 1.7).cos();
@@ -752,11 +926,7 @@ impl Render for BaseApp {
             })
             .child(toolbar)
             .child({
-                let sidebar = div()
-                    .flex_none()
-                    .h_full()
-                    .overflow_hidden()
-                    .child(sidebar);
+                let sidebar = div().flex_none().h_full().overflow_hidden().child(sidebar);
                 let sidebar = if ui::motion::animates(cx) {
                     sidebar
                         .motion(
@@ -805,55 +975,61 @@ fn main() {
     let prefs = Preferences::load();
     icons::set(prefs.icon_pack);
 
-    gpui_platform::application().with_assets(icons::Assets).run(move |cx: &mut App| {
-        let look = Look {
-            kind: prefs.theme,
-            rounding: prefs.rounding,
-            font: prefs.font_size,
-            transparent: prefs.transparent,
-            transparency: prefs.transparency,
-            blur: prefs.blur,
-            blur_window: prefs.blur_window,
-            tint: prefs.ambient.then(|| prefs.ambient_style.colors().0),
-            tint_secondary: prefs.ambient.then(|| prefs.ambient_style.colors().1),
-        };
-        Theme::init(look, &ThemeOverrides::default(), cx);
-        ui::motion::apply(prefs.stillness, prefs.pace, cx);
-        let bounds = WindowBounds::Windowed(Bounds::centered(None, FIRST_SIZE, cx));
-        cx.open_window(
-            WindowOptions {
-                window_bounds: Some(bounds),
-                window_background: ui::backdrop(prefs.blur_window, prefs.transparent),
-            titlebar: Some(TitlebarOptions {
-                title: Some("baseapp".into()),
-                    appears_transparent: true,
+    gpui_platform::application()
+        .with_assets(icons::Assets)
+        .run(move |cx: &mut App| {
+            let look = Look {
+                kind: prefs.theme,
+                rounding: prefs.rounding,
+                font: prefs.font_size,
+                transparent: prefs.transparent,
+                transparency: prefs.transparency,
+                blur: prefs.blur,
+                blur_window: prefs.blur_window,
+                tint: prefs.ambient.then(|| prefs.ambient_style.colors().0),
+                tint_secondary: prefs.ambient.then(|| prefs.ambient_style.colors().1),
+            };
+            Theme::init(look, &ThemeOverrides::default(), cx);
+            ui::motion::apply(prefs.stillness, prefs.pace, cx);
+            let bounds = WindowBounds::Windowed(Bounds::centered(None, FIRST_SIZE, cx));
+            cx.open_window(
+                WindowOptions {
+                    window_bounds: Some(bounds),
+                    window_background: ui::backdrop(prefs.blur_window, prefs.transparent),
+                    titlebar: Some(TitlebarOptions {
+                        title: Some("baseapp".into()),
+                        appears_transparent: true,
+                        ..Default::default()
+                    }),
+                    app_owns_titlebar_drag: true,
+                    window_min_size: Some(gpui::size(px(480.), px(400.))),
+                    app_id: Some("baseapp".into()),
                     ..Default::default()
-                }),
-            app_owns_titlebar_drag: true,
-            window_min_size: Some(gpui::size(px(480.), px(400.))),
-            app_id: Some("baseapp".into()),
-                ..Default::default()
-            },
-            |window, cx| {
-                window.set_rem_size(cx.theme().font_size);
-                let view = cx.new(|cx| BaseApp::new(prefs, cx));
-                view.update(cx, |this, cx| {
-                    this.appearance_observer = Some(cx.observe_window_appearance(window, |this, window, cx| {
-                        let reported = ThemeKind::reported(cx);
-                        let changed = ThemeKind::assumed() != Some(reported);
-                        if changed {
-                            ThemeKind::assume(reported);
-                        }
-                        if this.theme == ThemeKind::System && changed {
-                            Theme::fade(this.look(), &ThemeOverrides::default(), cx);
-                        }
-                        window.set_background_appearance(ui::backdrop(this.blur_window, this.transparent));
-                    }));
-                });
-                view
-            },
-        )
-        .expect("failed to open window");
-        cx.activate(true);
-    });
+                },
+                |window, cx| {
+                    window.set_rem_size(cx.theme().font_size);
+                    let view = cx.new(|cx| BaseApp::new(prefs, cx));
+                    view.update(cx, |this, cx| {
+                        this.appearance_observer =
+                            Some(cx.observe_window_appearance(window, |this, window, cx| {
+                                let reported = ThemeKind::reported(cx);
+                                let changed = ThemeKind::assumed() != Some(reported);
+                                if changed {
+                                    ThemeKind::assume(reported);
+                                }
+                                if this.theme == ThemeKind::System && changed {
+                                    Theme::fade(this.look(), &ThemeOverrides::default(), cx);
+                                }
+                                window.set_background_appearance(ui::backdrop(
+                                    this.blur_window,
+                                    this.transparent,
+                                ));
+                            }));
+                    });
+                    view
+                },
+            )
+            .expect("failed to open window");
+            cx.activate(true);
+        });
 }
