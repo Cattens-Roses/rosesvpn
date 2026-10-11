@@ -43,4 +43,4 @@ Name: "{autoprograms}\RosesVPN"; Filename: "{app}\rosesvpn.exe"
 Name: "{autodesktop}\RosesVPN"; Filename: "{app}\rosesvpn.exe"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\rosesvpn.exe"; Description: "Launch RosesVPN"; Flags: postinstall nowait skipifsilent
+Filename: "{app}\rosesvpn.exe"; Flags: nowait

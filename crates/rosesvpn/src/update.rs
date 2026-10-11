@@ -207,7 +207,10 @@ pub fn download_and_launch(asset: &UpdateAsset) -> anyhow::Result<()> {
 #[cfg(windows)]
 fn launch_installer(path: &PathBuf) -> anyhow::Result<()> {
     Command::new(path)
+        .arg("/VERYSILENT")
+        .arg("/SUPPRESSMSGBOXES")
         .arg("/CLOSEAPPLICATIONS")
+        .arg("/NORESTART")
         .spawn()
         .context("Could not launch the RosesVPN setup program")?;
     Ok(())

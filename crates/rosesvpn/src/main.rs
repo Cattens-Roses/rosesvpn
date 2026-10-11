@@ -175,6 +175,8 @@ struct RosesVpn {
     update_status: String,
     available_update: Option<update::AvailableUpdate>,
     update_check_started: bool,
+    update_check_in_progress: bool,
+    update_install_in_progress: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -391,9 +393,10 @@ fn format_bytes(bytes: u64) -> String {
 
 impl RosesVpn {
     fn check_for_updates(&mut self, cx: &mut Context<Self>) {
-        if self.update_status == "Checking for updates…" {
+        if self.update_check_in_progress || self.update_install_in_progress {
             return;
         }
+        self.update_check_in_progress = true;
         self.update_status = "Checking for updates…".into();
         self.available_update = None;
         cx.notify();
@@ -403,10 +406,11 @@ impl RosesVpn {
                 .spawn(async { update::check_for_update(env!("ROSESVPN_BUILD_VERSION")) })
                 .await;
             let _ = this.update(cx, |this, cx| {
+                this.update_check_in_progress = false;
                 match result {
                     Ok(Some(available)) => {
-                        this.update_status = format!("Version {} is available", available.version);
                         this.available_update = Some(available);
+                        this.install_update(cx);
                     }
                     Ok(None) => {
                         this.update_status = "RosesVPN is up to date".into();
@@ -424,9 +428,13 @@ impl RosesVpn {
     }
 
     fn install_update(&mut self, cx: &mut Context<Self>) {
+        if self.update_install_in_progress {
+            return;
+        }
         let Some(available) = self.available_update.clone() else {
             return;
         };
+        self.update_install_in_progress = true;
         self.update_status = "Downloading and verifying update…".into();
         cx.notify();
         cx.spawn(async move |this, cx| {
@@ -435,10 +443,12 @@ impl RosesVpn {
                 .spawn(async move { update::download_and_launch(&available.asset) })
                 .await;
             let _ = this.update(cx, |this, cx| {
+                this.update_install_in_progress = false;
                 this.update_status = match result {
                     Ok(()) => {
                         this.available_update = None;
-                        "Installer started. Follow its instructions to finish updating.".into()
+                        "Update installer started. Restart RosesVPN after the update finishes."
+                            .into()
                     }
                     Err(error) => format!("Could not install update: {error:#}"),
                 };
@@ -593,9 +603,11 @@ impl RosesVpn {
             lockdown_service_active: vpn_engine::lockdown_active(),
             security_notice: None,
             privilege_prompt: None,
-            update_status: "Checking for updates…".into(),
+            update_status: "Updates have not been checked yet".into(),
             available_update: None,
             update_check_started: false,
+            update_check_in_progress: false,
+            update_install_in_progress: false,
         }
     }
 
@@ -1185,22 +1197,32 @@ impl Render for RosesVpn {
                                             .into_any_element(),
                                         cx,
                                     ))
-                                    .when_some(self.available_update.clone(), |settings, available| {
-                                        settings
-                                            .child(Separator::horizontal().w_full())
-                                            .child(self.row(
-                                                "Install update",
-                                                format!("RosesVPN {} is ready to install", available.version),
-                                                Button::new("updates-install")
-                                                    .primary()
-                                                    .label("Download and install")
-                                                    .on_click(cx.listener(|this, _, _, cx| {
-                                                        this.install_update(cx);
-                                                    }))
-                                                    .into_any_element(),
-                                                cx,
-                                            ))
-                                    }),
+                                    .when_some(
+                                        self.available_update
+                                            .clone()
+                                            .filter(|_| !self.update_install_in_progress),
+                                        |settings, available| {
+                                            settings
+                                                .child(Separator::horizontal().w_full())
+                                                .child(self.row(
+                                                    "Install update",
+                                                    format!(
+                                                        "RosesVPN {} is ready to install",
+                                                        available.version
+                                                    ),
+                                                    Button::new("updates-install")
+                                                        .primary()
+                                                        .label("Download and install")
+                                                        .on_click(cx.listener(
+                                                            |this, _, _, cx| {
+                                                                this.install_update(cx);
+                                                            },
+                                                        ))
+                                                        .into_any_element(),
+                                                    cx,
+                                                ))
+                                        },
+                                    ),
                             ),
                     )
                     .into_any_element()
