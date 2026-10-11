@@ -189,7 +189,10 @@ pub fn download_and_launch(
         total: asset.size,
     });
     let status = loop {
-        if let Some(status) = child.try_wait().context("Could not monitor update download")? {
+        if let Some(status) = child
+            .try_wait()
+            .context("Could not monitor update download")?
+        {
             break status;
         }
         let downloaded = std::fs::metadata(&path).map_or(0, |metadata| metadata.len());
@@ -205,10 +208,7 @@ pub fn download_and_launch(
             let _ = pipe.read_to_string(&mut stderr);
         }
         let _ = std::fs::remove_file(&path);
-        anyhow::bail!(
-            "Download failed: {}",
-            stderr.trim()
-        );
+        anyhow::bail!("Download failed: {}", stderr.trim());
     }
     report_progress(DownloadProgress {
         downloaded: asset.size,
