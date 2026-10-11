@@ -3,7 +3,7 @@
 use gpui::prelude::*;
 use gpui::{
     App, Bounds, Context, Entity, FocusHandle, Hsla, Render, Rgba, ScrollHandle, SharedString,
-    TitlebarOptions, Window, WindowBounds, WindowOptions, canvas, div, point, px,
+    TitlebarOptions, Window, WindowBounds, WindowOptions, canvas, div, point, px, relative,
 };
 use std::cell::Cell;
 use std::f32::consts::TAU;
@@ -43,6 +43,11 @@ enum PrivilegedOperation {
     Connect,
     Disconnect,
     SetLockdown(bool),
+}
+
+enum DownloadEvent {
+    Progress(update::DownloadProgress),
+    Finished(anyhow::Result<()>),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -177,6 +182,7 @@ struct RosesVpn {
     update_check_started: bool,
     update_check_in_progress: bool,
     update_install_in_progress: bool,
+    update_progress: Option<update::DownloadProgress>,
 }
 
 #[derive(Clone, Copy)]
@@ -391,6 +397,14 @@ fn format_bytes(bytes: u64) -> String {
     }
 }
 
+fn progress_percent(progress: update::DownloadProgress) -> u64 {
+    if progress.total == 0 {
+        0
+    } else {
+        progress.downloaded.saturating_mul(100) / progress.total
+    }
+}
+
 impl RosesVpn {
     fn check_for_updates(&mut self, cx: &mut Context<Self>) {
         if self.update_check_in_progress || self.update_install_in_progress {
@@ -435,25 +449,69 @@ impl RosesVpn {
             return;
         };
         self.update_install_in_progress = true;
-        self.update_status = "Downloading and verifying update…".into();
+        self.update_progress = Some(update::DownloadProgress {
+            downloaded: 0,
+            total: available.asset.size,
+        });
+        self.update_status = format!("Downloading {}…", available.asset.name);
         cx.notify();
+        let asset = available.asset.clone();
+        let asset_name = available.asset.name.clone();
+        let (progress_tx, progress_rx) = std::sync::mpsc::channel();
+        let done_tx = progress_tx.clone();
+        cx.background_executor()
+            .spawn(async move {
+                let result = update::download_and_launch(&asset, |progress| {
+                    let _ = progress_tx.send(DownloadEvent::Progress(progress));
+                });
+                // Completion is delivered separately so the receiver can distinguish it from an
+                // empty progress queue while the transfer is still running.
+                let _ = done_tx.send(DownloadEvent::Finished(result));
+            })
+            .detach();
         cx.spawn(async move |this, cx| {
-            let result = cx
-                .background_executor()
-                .spawn(async move { update::download_and_launch(&available.asset) })
-                .await;
-            let _ = this.update(cx, |this, cx| {
-                this.update_install_in_progress = false;
-                this.update_status = match result {
-                    Ok(()) => {
-                        this.available_update = None;
-                        "Update installer started. Restart RosesVPN after the update finishes."
-                            .into()
+            loop {
+                cx.background_executor()
+                    .timer(std::time::Duration::from_millis(200))
+                    .await;
+                let mut completed = false;
+                while let Ok(event) = progress_rx.try_recv() {
+                    match event {
+                        DownloadEvent::Progress(progress) => {
+                            let _ = this.update(cx, |this, cx| {
+                                this.update_progress = Some(progress);
+                                this.update_status = format!(
+                                    "File 1/1: {} · {}% · {} downloaded, {} remaining",
+                                    asset_name,
+                                    progress_percent(progress),
+                                    format_bytes(progress.downloaded),
+                                    format_bytes(progress.total.saturating_sub(progress.downloaded)),
+                                );
+                                cx.notify();
+                            });
+                        }
+                        DownloadEvent::Finished(result) => {
+                            let _ = this.update(cx, |this, cx| {
+                                this.update_install_in_progress = false;
+                                this.update_progress = None;
+                                this.update_status = match result {
+                                    Ok(()) => {
+                                        this.available_update = None;
+                                        "Update installer started. Restart RosesVPN after the update finishes."
+                                            .into()
+                                    }
+                                    Err(error) => format!("Could not install update: {error:#}"),
+                                };
+                                cx.notify();
+                            });
+                            completed = true;
+                        }
                     }
-                    Err(error) => format!("Could not install update: {error:#}"),
-                };
-                cx.notify();
-            });
+                }
+                if completed {
+                    break;
+                }
+            }
         })
         .detach();
     }
@@ -608,6 +666,7 @@ impl RosesVpn {
             update_check_started: false,
             update_check_in_progress: false,
             update_install_in_progress: false,
+            update_progress: None,
         }
     }
 
@@ -1197,6 +1256,26 @@ impl Render for RosesVpn {
                                             .into_any_element(),
                                         cx,
                                     ))
+                                    .when_some(self.update_progress, |settings, progress| {
+                                        settings.child(
+                                            div()
+                                                .w_full()
+                                                .h(px(6.))
+                                                .rounded_full()
+                                                .bg(theme.secondary)
+                                                .child(
+                                                    div()
+                                                        .h_full()
+                                                        .rounded_full()
+                                                        .w(relative(
+                                                            (progress.downloaded as f32
+                                                                / progress.total.max(1) as f32)
+                                                                .clamp(0., 1.),
+                                                        ))
+                                                        .bg(theme.progress_bar),
+                                                ),
+                                        )
+                                    })
                                     .when_some(
                                         self.available_update
                                             .clone()

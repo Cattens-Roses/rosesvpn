@@ -24,6 +24,12 @@ pub struct AvailableUpdate {
     pub asset: UpdateAsset,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct DownloadProgress {
+    pub downloaded: u64,
+    pub total: u64,
+}
+
 #[derive(Deserialize)]
 struct Manifest {
     product: String,
@@ -147,7 +153,10 @@ fn curl() -> Command {
     command
 }
 
-pub fn download_and_launch(asset: &UpdateAsset) -> anyhow::Result<()> {
+pub fn download_and_launch(
+    asset: &UpdateAsset,
+    mut report_progress: impl FnMut(DownloadProgress),
+) -> anyhow::Result<()> {
     validate_asset(asset)?;
     let filename = if cfg!(windows) {
         format!("rosesvpn-update-{}.exe", std::process::id())
@@ -155,7 +164,8 @@ pub fn download_and_launch(asset: &UpdateAsset) -> anyhow::Result<()> {
         format!("rosesvpn-update-{}.deb", std::process::id())
     };
     let path = std::env::temp_dir().join(filename);
-    let output = curl()
+    let _ = std::fs::remove_file(&path);
+    let mut child = curl()
         .args([
             "--proto",
             "=https",
@@ -170,15 +180,40 @@ pub fn download_and_launch(asset: &UpdateAsset) -> anyhow::Result<()> {
         ])
         .arg(&path)
         .arg(&asset.url)
-        .output()
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
         .context("Could not start curl to download the update")?;
-    if !output.status.success() {
+    report_progress(DownloadProgress {
+        downloaded: 0,
+        total: asset.size,
+    });
+    let status = loop {
+        if let Some(status) = child.try_wait().context("Could not monitor update download")? {
+            break status;
+        }
+        let downloaded = std::fs::metadata(&path).map_or(0, |metadata| metadata.len());
+        report_progress(DownloadProgress {
+            downloaded: downloaded.min(asset.size),
+            total: asset.size,
+        });
+        std::thread::sleep(std::time::Duration::from_millis(250));
+    };
+    if !status.success() {
+        let mut stderr = String::new();
+        if let Some(mut pipe) = child.stderr.take() {
+            let _ = pipe.read_to_string(&mut stderr);
+        }
         let _ = std::fs::remove_file(&path);
         anyhow::bail!(
             "Download failed: {}",
-            String::from_utf8_lossy(&output.stderr).trim()
+            stderr.trim()
         );
     }
+    report_progress(DownloadProgress {
+        downloaded: asset.size,
+        total: asset.size,
+    });
 
     let verify = (|| -> anyhow::Result<()> {
         ensure!(
